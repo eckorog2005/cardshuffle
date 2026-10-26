@@ -16,7 +16,11 @@ npm run typecheck
 npm test
 ```
 
-The server listens on `PORT` (default 4000) and `IP` (default all interfaces).
+The server listens on `PORT` (default 4000) and `IP` (default all interfaces). It logs JSON lines (Fastify's pino logger) to stdout, and shuts down gracefully on `SIGTERM`/`SIGINT`.
+
+Requests are rate limited per client IP to `RATE_LIMIT_MAX` requests (default 100) per `RATE_LIMIT_WINDOW` (default `1 minute`; milliseconds or a string like `30 seconds`). Over the limit the API returns 429 with a `Retry-After` header.
+
+CORS is enabled for any origin, for `GET` and `POST`.
 
 ## API
 
@@ -25,7 +29,9 @@ There are two endpoints:
 - `GET /shuffle` returns a shuffled standard deck. Cards are written as value then suit, e.g. `10H` is the 10 of hearts.
 - `POST /customDeck` shuffles a deck you send as a JSON body: `{"deck":["one","two","three"]}`. Each card must be a string; whitespace around each card is trimmed, and empty cards are rejected. Cards may contain any other characters, commas included. Other content types return 415. With no body, or an empty `deck` array, it falls back to a standard deck.
 
-Both accept these query options:
+`GET /health` returns `{"status":"ok"}` for liveness checks. It is not rate limited.
+
+Both shuffle endpoints accept these query options:
 
 | Option       | Meaning                                                                                            |
 | ------------ | -------------------------------------------------------------------------------------------------- |
