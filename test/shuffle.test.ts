@@ -27,7 +27,7 @@ describe('shuffleRequest', () => {
   });
 
   test('repeats a custom deck numDecks times', () => {
-    const result = shuffleRequest({ deck: 'a,b,c', numDecks: 2 }, randomInt);
+    const result = shuffleRequest({ deck: ['a', 'b', 'c'], numDecks: 2 }, randomInt);
     assert.ok('deck' in result);
     assert.deepEqual(result.deck.split(',').sort(), ['a', 'a', 'b', 'b', 'c', 'c']);
   });

@@ -3,7 +3,7 @@ import { standardDeck } from './deck.ts';
 export interface ShuffleParams {
   numDecks?: number;
   deal?: { players: number; handSize: number };
-  deck?: string;
+  deck?: string[];
 }
 
 export type ParseResult = { params: ShuffleParams } | { error: string };
@@ -43,8 +43,11 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
     return { error: 'invalid format for deck' };
   }
 
-  const customDeck = deck !== undefined && deck !== '';
-  const cardCount = (customDeck ? deck.split(',').length : STANDARD_DECK_SIZE) * Number(numDecks ?? 1);
+  const customDeck = deck !== undefined && deck !== '' ? deck.split(',').map((card) => card.trim()) : undefined;
+  if (customDeck?.includes('')) {
+    return { error: 'custom deck cannot contain empty cards' };
+  }
+  const cardCount = (customDeck?.length ?? STANDARD_DECK_SIZE) * Number(numDecks ?? 1);
   if (customDeck && cardCount > MAX_CUSTOM_CARDS) {
     return { error: `custom deck cannot have more than ${String(MAX_CUSTOM_CARDS)} cards in total` };
   }
@@ -60,7 +63,7 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
     params.deal = { players: Number(players), handSize: Number(handSize) };
   }
   if (customDeck) {
-    params.deck = deck;
+    params.deck = customDeck;
   }
   return { params };
 }

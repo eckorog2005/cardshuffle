@@ -4,7 +4,7 @@ import type { ShuffleParams } from './params.ts';
 export type ShuffleResponse = { deck: string } | { hands: string[]; deck: string };
 
 export function shuffleRequest(params: ShuffleParams, random: Random): ShuffleResponse {
-  const deck = params.deck?.split(',') ?? standardDeck();
+  const deck = params.deck ?? standardDeck();
   const cards = shuffle(repeat(deck, params.numDecks), random);
 
   if (params.deal === undefined) {
