@@ -1,13 +1,11 @@
-import { repeat, shuffle, type DeckPool, type Random } from './deck.ts';
+import { repeat, shuffle, standardDeck, type Random } from './deck.ts';
 import type { ShuffleParams } from './params.ts';
 
 export type ShuffleResponse = { deck: string } | { hands: string[]; deck: string };
 
-export function shuffleRequest(params: ShuffleParams, pool: DeckPool, random: Random): ShuffleResponse {
-  const cards =
-    params.deck === undefined
-      ? pool.deal(params.numDecks)
-      : shuffle(repeat(params.deck.split(','), params.numDecks), random);
+export function shuffleRequest(params: ShuffleParams, random: Random): ShuffleResponse {
+  const deck = params.deck?.split(',') ?? standardDeck();
+  const cards = shuffle(repeat(deck, params.numDecks), random);
 
   if (params.deal === undefined) {
     return { deck: cards.join() };

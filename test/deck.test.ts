@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { DeckPool, repeat, shuffle, standardDeck } from '../src/deck.ts';
+import { repeat, shuffle, standardDeck } from '../src/deck.ts';
 
 const sorted = (cards: readonly string[]) => [...cards].sort();
 
@@ -35,7 +35,7 @@ describe('shuffle', () => {
   // A uniform shuffle must be able to leave a card where it was; Sattolo's
   // variant (random index below i) never can.
   test('can leave cards in their original position', () => {
-    const highest = () => 0.999999;
+    const highest = (maxExclusive: number) => maxExclusive - 1;
     assert.deepEqual(shuffle(['a', 'b', 'c', 'd'], highest), ['a', 'b', 'c', 'd']);
   });
 
@@ -52,18 +52,5 @@ describe('repeat', () => {
 
   test('defaults to a single copy', () => {
     assert.deepEqual(repeat(['a', 'b']), ['a', 'b']);
-  });
-});
-
-describe('DeckPool', () => {
-  test('deals one full deck by default', () => {
-    const cards = new DeckPool().deal();
-    assert.deepEqual(sorted(cards), sorted(standardDeck()));
-  });
-
-  test('deals several decks combined', () => {
-    const cards = new DeckPool().deal(3);
-    assert.equal(cards.length, 156);
-    assert.deepEqual(sorted(cards), sorted(repeat(standardDeck(), 3)));
   });
 });

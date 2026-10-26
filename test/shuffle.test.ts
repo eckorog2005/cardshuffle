@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
+import { randomInt } from 'node:crypto';
 import { describe, test } from 'node:test';
-import { DeckPool } from '../src/deck.ts';
 import { deal, shuffleRequest } from '../src/shuffle.ts';
 
 describe('deal', () => {
@@ -20,22 +20,20 @@ describe('deal', () => {
 });
 
 describe('shuffleRequest', () => {
-  const pool = new DeckPool();
-
   test('returns a standard deck by default', () => {
-    const result = shuffleRequest({}, pool, Math.random);
+    const result = shuffleRequest({}, randomInt);
     assert.ok('deck' in result && !('hands' in result));
     assert.equal(result.deck.split(',').length, 52);
   });
 
   test('repeats a custom deck numDecks times', () => {
-    const result = shuffleRequest({ deck: 'a,b,c', numDecks: 2 }, pool, Math.random);
+    const result = shuffleRequest({ deck: 'a,b,c', numDecks: 2 }, randomInt);
     assert.ok('deck' in result);
     assert.deepEqual(result.deck.split(',').sort(), ['a', 'a', 'b', 'b', 'c', 'c']);
   });
 
   test('deals hands from the shuffled deck', () => {
-    const result = shuffleRequest({ deal: { players: 4, handSize: 5 } }, pool, Math.random);
+    const result = shuffleRequest({ deal: { players: 4, handSize: 5 } }, randomInt);
     assert.ok('hands' in result);
     assert.equal(result.hands.length, 4);
     for (const hand of result.hands) {
