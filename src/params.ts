@@ -15,6 +15,9 @@ export const MAX_CUSTOM_CARDS = 10_000;
 
 const STANDARD_DECK_SIZE = standardDeck().length;
 
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
 const isPositiveInteger = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value);
 
@@ -39,11 +42,11 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
   if (handSize !== undefined && players === undefined) {
     return { error: 'in order to use hand size, you need to pass amount of players also' };
   }
-  if (deck !== undefined && typeof deck !== 'string') {
+  if (deck !== undefined && !isStringArray(deck)) {
     return { error: 'invalid format for deck' };
   }
 
-  const customDeck = deck !== undefined && deck !== '' ? deck.split(',').map((card) => card.trim()) : undefined;
+  const customDeck = deck !== undefined && deck.length > 0 ? deck.map((card) => card.trim()) : undefined;
   if (customDeck?.includes('')) {
     return { error: 'custom deck cannot contain empty cards' };
   }

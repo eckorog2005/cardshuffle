@@ -17,7 +17,7 @@ describe('parseParams', () => {
 
   test('accepts the maximum number of decks and cards', () => {
     assert.deepEqual(parseParams({ numDecks: '100' }, undefined), { params: { numDecks: 100 } });
-    assert.deepEqual(parseParams({ numDecks: '2' }, repeatCards(5000).join()), {
+    assert.deepEqual(parseParams({ numDecks: '2' }, repeatCards(5000)), {
       params: { numDecks: 2, deck: repeatCards(5000) },
     });
   });
@@ -26,19 +26,23 @@ describe('parseParams', () => {
     assert.deepEqual(parseParams({ players: '4', handSize: '13' }, undefined), {
       params: { deal: { players: 4, handSize: 13 } },
     });
-    assert.deepEqual(parseParams({ numDecks: '2', players: '2', handSize: '3' }, 'a,b,c'), {
+    assert.deepEqual(parseParams({ numDecks: '2', players: '2', handSize: '3' }, ['a', 'b', 'c']), {
       params: { numDecks: 2, deal: { players: 2, handSize: 3 }, deck: ['a', 'b', 'c'] },
     });
     assert.ok('params' in parseParams({ numDecks: '2', players: '8', handSize: '13' }, undefined));
   });
 
   test('keeps a custom deck and ignores an empty one', () => {
-    assert.deepEqual(parseParams({}, 'a,b'), { params: { deck: ['a', 'b'] } });
-    assert.deepEqual(parseParams({}, ''), { params: {} });
+    assert.deepEqual(parseParams({}, ['a', 'b']), { params: { deck: ['a', 'b'] } });
+    assert.deepEqual(parseParams({}, []), { params: {} });
+  });
+
+  test('keeps commas inside custom cards', () => {
+    assert.deepEqual(parseParams({}, ['a,b', 'c']), { params: { deck: ['a,b', 'c'] } });
   });
 
   test('trims whitespace around custom cards', () => {
-    assert.deepEqual(parseParams({}, ' a , b\t,c '), { params: { deck: ['a', 'b', 'c'] } });
+    assert.deepEqual(parseParams({}, [' a ', ' b\t', 'c ']), { params: { deck: ['a', 'b', 'c'] } });
   });
 
   const errors: [string, Record<string, unknown>, unknown, string][] = [
@@ -62,11 +66,13 @@ describe('parseParams', () => {
       undefined,
       'in order to use hand size, you need to pass amount of players also',
     ],
-    ['non-string deck', {}, ['a', 'b'], 'invalid format for deck'],
-    ['an empty card in a custom deck', {}, 'a,,b', 'custom deck cannot contain empty cards'],
-    ['a trailing comma in a custom deck', {}, 'a,b,', 'custom deck cannot contain empty cards'],
-    ['a blank card in a custom deck', {}, 'a, ,b', 'custom deck cannot contain empty cards'],
-    ['a custom deck of only commas', {}, ',', 'custom deck cannot contain empty cards'],
+    ['a comma-separated string deck', {}, 'a,b', 'invalid format for deck'],
+    ['an object deck', {}, { a: 'b' }, 'invalid format for deck'],
+    ['a deck with a non-string card', {}, ['a', 1], 'invalid format for deck'],
+    ['a deck with a nested array', {}, ['a', ['b']], 'invalid format for deck'],
+    ['a deck with a null card', {}, ['a', null], 'invalid format for deck'],
+    ['an empty card in a custom deck', {}, ['a', '', 'b'], 'custom deck cannot contain empty cards'],
+    ['a blank card in a custom deck', {}, ['a', ' \t', 'b'], 'custom deck cannot contain empty cards'],
     [
       'dealing more than a standard deck',
       { players: '11', handSize: '5' },
@@ -76,13 +82,13 @@ describe('parseParams', () => {
     [
       'dealing more than a custom deck',
       { players: '2', handSize: '2' },
-      'a,b,c',
+      ['a', 'b', 'c'],
       'the amount of cards dealt out is greater than the deck',
     ],
     [
       'a custom deck over the card limit',
       { numDecks: '2' },
-      repeatCards(5001).join(),
+      repeatCards(5001),
       'custom deck cannot have more than 10000 cards in total',
     ],
   ];
