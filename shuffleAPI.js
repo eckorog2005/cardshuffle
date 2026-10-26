@@ -31,23 +31,23 @@ for(var i = 0;i<serverDeckNum;i++){
 }
 
 //get shuffle for stndard card deck
-exports.shuffle = function(req, res){
-    var query = req.query;
+exports.shuffle = function(request, reply){
+    var query = request.query;
     var params = validate(query, "");
     if(params.error){
-        return res.status(401).json({"error": params.error});
+        return reply.code(401).send({"error": params.error});
     }
-    res.status(200).json(shuffleDeck(params));
+    return reply.code(200).send(shuffleDeck(params));
 }
 
 //post shuffle for custom deck if data found
-exports.customDeck = function(req, res){
-    var query = req.query;
-    var params = validate(query, req.body?.deck);
+exports.customDeck = function(request, reply){
+    var query = request.query;
+    var params = validate(query, request.body?.deck);
     if(params.error){
-        return res.status(401).json({"error": params.error});
+        return reply.code(401).send({"error": params.error});
     }	
-    res.status(200).json(shuffleDeck(params));
+    return reply.code(200).send(shuffleDeck(params));
 }
 
 //shuffles deck and builds json data to return
