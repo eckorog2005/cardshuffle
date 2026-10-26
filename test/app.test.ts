@@ -4,9 +4,8 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.ts';
 
 interface DeckBody {
-  deck: string;
-  hands?: string[];
-  error?: string;
+  hands: string[][];
+  deck: string[];
 }
 
 describe('HTTP API', () => {
@@ -20,13 +19,21 @@ describe('HTTP API', () => {
     await app.close();
   });
 
-  const cardsOf = (body: string) => (JSON.parse(body) as DeckBody).deck.split(',');
+  const cardsOf = (body: string) => (JSON.parse(body) as DeckBody).deck;
 
   test('GET /shuffle returns a shuffled standard deck', async () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle' });
     assert.equal(res.statusCode, 200);
     assert.match(res.headers['content-type'] ?? '', /application\/json/);
     assert.equal(new Set(cardsOf(res.body)).size, 52);
+  });
+
+  test('GET /shuffle always returns the same shape, with no hands unless dealing', async () => {
+    const res = await app.inject({ method: 'GET', url: '/shuffle' });
+    const body = res.json<DeckBody>();
+    assert.deepEqual(Object.keys(body), ['hands', 'deck']);
+    assert.deepEqual(body.hands, []);
+    assert.ok(body.deck.every((card) => typeof card === 'string'));
   });
 
   test('GET /shuffle?numDecks=2 combines two decks', async () => {
@@ -39,10 +46,10 @@ describe('HTTP API', () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle?players=4&handSize=5' });
     assert.equal(res.statusCode, 200);
     const body = res.json<DeckBody>();
-    assert.ok(body.hands);
     assert.equal(body.hands.length, 4);
-    assert.ok(body.hands.every((hand) => hand.split(',').length === 5));
-    assert.equal(body.deck.split(',').length, 32);
+    assert.ok(body.hands.every((hand) => hand.length === 5));
+    assert.equal(body.deck.length, 32);
+    assert.equal(new Set([...body.hands.flat(), ...body.deck]).size, 52);
   });
 
   test('GET /shuffle rejects invalid options with 400', async () => {
@@ -63,7 +70,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/customDeck?numDecks=3',
-      payload: { deck: 'one,two,three,four' },
+      payload: { deck: ['one', 'two', 'three', 'four'] },
     });
     assert.equal(res.statusCode, 200);
     assert.deepEqual(cardsOf(res.body).sort(), [
@@ -72,15 +79,24 @@ describe('HTTP API', () => {
     ]);
   });
 
-  test('POST /customDeck accepts a form-encoded deck', async () => {
+  test('POST /customDeck keeps commas inside cards', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/customDeck?players=1&handSize=1',
+      payload: { deck: ['Ace, high'] },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json(), { hands: [['Ace, high']], deck: [] });
+  });
+
+  test('POST /customDeck rejects a form-encoded body', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/customDeck',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      payload: 'deck=a,b,c',
+      payload: 'deck=a&deck=b',
     });
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(cardsOf(res.body).sort(), ['a', 'b', 'c']);
+    assert.equal(res.statusCode, 415);
   });
 
   test('POST /customDeck without a body falls back to a standard deck', async () => {
@@ -89,20 +105,32 @@ describe('HTTP API', () => {
     assert.equal(cardsOf(res.body).length, 52);
   });
 
-  test('POST /customDeck rejects a non-string deck', async () => {
-    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ['a', 'b'] } });
+  test('POST /customDeck falls back to a standard deck for an empty array', async () => {
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: [] } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(cardsOf(res.body).length, 52);
+  });
+
+  test('POST /customDeck rejects a comma-separated string deck', async () => {
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: 'a,b' } });
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.json(), { error: 'invalid format for deck' });
+  });
+
+  test('POST /customDeck rejects non-string cards', async () => {
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ['a', 2] } });
     assert.equal(res.statusCode, 400);
     assert.deepEqual(res.json(), { error: 'invalid format for deck' });
   });
 
   test('POST /customDeck trims whitespace around cards', async () => {
-    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ' a , b ' } });
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: [' a ', ' b '] } });
     assert.equal(res.statusCode, 200);
     assert.deepEqual(cardsOf(res.body).sort(), ['a', 'b']);
   });
 
   test('POST /customDeck rejects empty cards', async () => {
-    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: 'a,,b' } });
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ['a', '', 'b'] } });
     assert.equal(res.statusCode, 400);
     assert.deepEqual(res.json(), { error: 'custom deck cannot contain empty cards' });
   });
@@ -127,7 +155,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/customDeck?numDecks=100',
-      payload: { deck: Array.from({ length: 101 }, (_, i) => String(i)).join() },
+      payload: { deck: Array.from({ length: 101 }, (_, i) => String(i)) },
     });
     assert.equal(res.statusCode, 400);
     assert.deepEqual(res.json(), { error: 'custom deck cannot have more than 10000 cards in total' });

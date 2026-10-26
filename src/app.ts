@@ -1,6 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-import formbody from '@fastify/formbody';
 import rateLimit from '@fastify/rate-limit';
 import { randomInt } from 'node:crypto';
 import type { Random } from './deck.ts';
@@ -25,7 +24,6 @@ export async function buildApp({
     max: limits.max ?? 100,
     timeWindow: limits.timeWindow ?? '1 minute',
   });
-  await app.register(formbody);
   app.get('/health', { config: { rateLimit: false } }, () => ({ status: 'ok' }));
   await app.register(shuffleRoutes, { random });
   return app;

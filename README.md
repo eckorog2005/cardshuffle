@@ -27,42 +27,51 @@ CORS is enabled for any origin, for `GET` and `POST`.
 There are two endpoints:
 
 - `GET /shuffle` returns a shuffled standard deck. Cards are written as value then suit, e.g. `10H` is the 10 of hearts.
-- `POST /customDeck` shuffles a deck you send in the body as JSON (`{"deck":"one,two,three"}`) or form data (`deck=one,two,three`). Cards are comma-separated, whitespace around each card is trimmed, and empty cards are rejected. Other content types return 415. With no body it falls back to a standard deck.
+- `POST /customDeck` shuffles a deck you send as a JSON body: `{"deck":["one","two","three"]}`. Each card must be a string; whitespace around each card is trimmed, and empty cards are rejected. Cards may contain any other characters, commas included. Other content types return 415. With no body, or an empty `deck` array, it falls back to a standard deck.
 
 `GET /health` returns `{"status":"ok"}` for liveness checks. It is not rate limited.
 
 Both shuffle endpoints accept these query options:
 
-| Option      | Meaning                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| `numDecks`  | Number of decks to shuffle together (1-100). A custom deck can hold at most 10000 cards in total. |
-| `players`\* | Number of hands to deal from the deck.                                                        |
-| `handSize`\* | Number of cards in each hand.                                                                |
+| Option       | Meaning                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| `numDecks`   | Number of decks to shuffle together (1-100). A custom deck can hold at most 10000 cards in total.  |
+| `players`\*  | Number of hands to deal from the deck.                                                             |
+| `handSize`\* | Number of cards in each hand.                                                                      |
 
 \* `players` and `handSize` must be used together, and can't deal more cards than the deck holds. Invalid options return 400 with an `error` message.
+
+### Response
+
+Every successful response has the same shape:
+
+```json
+{
+  "hands": [["10D", "JS"], ["8C", "8H"]],
+  "deck": ["KH", "KS", "JC"]
+}
+```
+
+- `hands` holds one array of cards per player, dealt round-robin. It is `[]` when `players`/`handSize` aren't given.
+- `deck` holds the shuffled cards left after dealing (all of them when nothing is dealt).
 
 ## Examples
 
 ```console
 $ curl 'http://localhost:4000/shuffle'
-{"deck":"JH,8H,3H,KD,8D,QH,7D,7C,9S,5C,9H,2S,10D,AH,9D,2H,QD,JS,KC,6S,4S,7H,5D,3S,6D,JC,AC,6C,KS,10S,5S,8C,KH,3D,3C,AS,4D,10H,9C,4H,8S,AD,2D,QC,JD,7S,4C,10C,6H,2C,5H,QS"}
-```
-
-```console
-$ curl 'http://localhost:4000/shuffle?numDecks=2'
-{"deck":"QD,QS,6D,4C,9D,QS,4S,KS,4H,9S,2H,8D,AC,KC,10D,JH,3H,7S,QH,KH,6S,10H,10C,JH,8S,8S,AD,3D,AH,5S,7C,8H,3S,5C,9C,7C,3C,2D,KD,7D,5H,8H,AS,9H,7D,6H,6C,9C,2C,2D,5S,6S,3H,KH,9D,4S,KD,AD,8C,7H,10S,2H,4C,JC,QC,JC,8D,AS,4H,5C,4D,KC,3S,KS,5H,2S,JS,7S,6H,10C,JD,4D,10H,JS,2S,AH,10S,9S,QH,7H,2C,3D,QC,10D,8C,5D,9H,5D,6D,3C,JD,QD,AC,6C"}
+{"hands":[],"deck":["7D","8H","4D","KH","9D","QS","4S","6D","6C","2D","10H","2H","4C","AH","KS","5C","5H","10S","10C","JD","10D","JS","6H","7S","3C","8C","QD","3D","7H","4H","AC","JH","JC","QC","7C","KC","3H","8D","3S","2C","AD","QH","6S","8S","KD","2S","9S","9C","AS","5D","9H","5S"]}
 ```
 
 ```console
 $ curl 'http://localhost:4000/shuffle?players=4&handSize=5'
 {
   "hands": [
-    "QH,6D,5C,7C,8H",
-    "10S,5H,6H,KS,3S",
-    "10D,KC,8S,6S,AS",
-    "3H,3D,9S,QD,AC"
+    ["10D", "JS", "4D", "JH", "5C"],
+    ["8C", "8H", "9D", "AD", "4C"],
+    ["KC", "3S", "QC", "6H", "4S"],
+    ["5D", "4H", "AS", "2S", "AH"]
   ],
-  "deck": "10H,QS,7S,4D,2D,9D,4S,4H,8D,2S,8C,7D,JS,6C,7H,AH,2C,9H,9C,QC,2H,4C,5D,KH,JD,10C,3C,5S,AD,JH,JC,KD"
+  "deck": ["KH", "KS", "JC", "7C", "3H", "3C", "5S", "7D", "2H", "9H", "2C", "10C", "7S", "8S", "6C", "10S", "8D", "7H", "2D", "AC", "QS", "JD", "6S", "3D", "KD", "QD", "9S", "QH", "6D", "5H", "9C", "10H"]
 }
 ```
 
@@ -72,16 +81,21 @@ $ curl 'http://localhost:4000/shuffle?players=4'
 ```
 
 ```console
-$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,two,three,four"}' 'http://localhost:4000/customDeck'
-{"deck":"two,four,one,three"}
+$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":["one","two","three","four"]}' 'http://localhost:4000/customDeck'
+{"hands":[],"deck":["four","one","two","three"]}
 ```
 
 ```console
-$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,two,three,four"}' 'http://localhost:4000/customDeck?numDecks=3'
-{"deck":"two,three,two,two,one,four,four,four,three,one,three,one"}
+$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":["Ace, high","two","three"]}' 'http://localhost:4000/customDeck?numDecks=2'
+{"hands":[],"deck":["Ace, high","two","three","three","two","Ace, high"]}
 ```
 
 ```console
-$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,,two"}' 'http://localhost:4000/customDeck'
+$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":["one","","two"]}' 'http://localhost:4000/customDeck'
 {"error":"custom deck cannot contain empty cards"}
+```
+
+```console
+$ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,two"}' 'http://localhost:4000/customDeck'
+{"error":"invalid format for deck"}
 ```
