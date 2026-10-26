@@ -32,6 +32,13 @@ describe('shuffle', () => {
     assert.deepEqual(deck, copy);
   });
 
+  // A uniform shuffle must be able to leave a card where it was; Sattolo's
+  // variant (random index below i) never can.
+  test('can leave cards in their original position', () => {
+    const highest = () => 0.999999;
+    assert.deepEqual(shuffle(['a', 'b', 'c', 'd'], highest), ['a', 'b', 'c', 'd']);
+  });
+
   test('handles empty and single-card decks', () => {
     assert.deepEqual(shuffle([]), []);
     assert.deepEqual(shuffle(['AH']), ['AH']);
