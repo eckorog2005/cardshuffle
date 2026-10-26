@@ -95,6 +95,28 @@ describe('HTTP API', () => {
     assert.deepEqual(res.json(), { error: 'invalid format for deck' });
   });
 
+  test('POST /customDeck trims whitespace around cards', async () => {
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ' a , b ' } });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(cardsOf(res.body).sort(), ['a', 'b']);
+  });
+
+  test('POST /customDeck rejects empty cards', async () => {
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: 'a,,b' } });
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.json(), { error: 'custom deck cannot contain empty cards' });
+  });
+
+  test('POST /customDeck rejects a plain-text body instead of ignoring it', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/customDeck',
+      headers: { 'content-type': 'text/plain' },
+      payload: 'a,b',
+    });
+    assert.equal(res.statusCode, 415);
+  });
+
   test('GET /shuffle rejects more than 100 decks', async () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle?numDecks=101' });
     assert.equal(res.statusCode, 400);
