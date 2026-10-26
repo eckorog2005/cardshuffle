@@ -1,7 +1,7 @@
 import { repeat, shuffle, type DeckPool, type Random } from './deck.ts';
 import type { ShuffleParams } from './params.ts';
 
-export type ShuffleResponse = { deck: string } | { hands: string[]; deck: string } | { error: string };
+export type ShuffleResponse = { deck: string } | { hands: string[]; deck: string };
 
 export function shuffleRequest(params: ShuffleParams, pool: DeckPool, random: Random): ShuffleResponse {
   const cards =
@@ -17,7 +17,7 @@ export function shuffleRequest(params: ShuffleParams, pool: DeckPool, random: Ra
 
 export function deal(cards: readonly string[], players: number, handSize: number): ShuffleResponse {
   if (players * handSize > cards.length) {
-    return { error: 'the amount of cards dealt out is greater than the deck' };
+    throw new RangeError(`cannot deal ${String(players * handSize)} cards from a deck of ${String(cards.length)}`);
   }
 
   const hands = Array.from({ length: players }, (): string[] => []);

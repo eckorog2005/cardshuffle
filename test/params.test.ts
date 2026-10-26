@@ -22,6 +22,16 @@ describe('parseParams', () => {
     });
   });
 
+  test('allows dealing exactly the whole deck', () => {
+    assert.deepEqual(parseParams({ players: '4', handSize: '13' }, undefined), {
+      params: { deal: { players: 4, handSize: 13 } },
+    });
+    assert.deepEqual(parseParams({ numDecks: '2', players: '2', handSize: '3' }, 'a,b,c'), {
+      params: { numDecks: 2, deal: { players: 2, handSize: 3 }, deck: 'a,b,c' },
+    });
+    assert.ok('params' in parseParams({ numDecks: '2', players: '8', handSize: '13' }, undefined));
+  });
+
   test('keeps a custom deck and ignores an empty one', () => {
     assert.deepEqual(parseParams({}, 'a,b'), { params: { deck: 'a,b' } });
     assert.deepEqual(parseParams({}, ''), { params: {} });
@@ -49,6 +59,18 @@ describe('parseParams', () => {
       'in order to use hand size, you need to pass amount of players also',
     ],
     ['non-string deck', {}, ['a', 'b'], 'invalid format for deck'],
+    [
+      'dealing more than a standard deck',
+      { players: '11', handSize: '5' },
+      undefined,
+      'the amount of cards dealt out is greater than the deck',
+    ],
+    [
+      'dealing more than a custom deck',
+      { players: '2', handSize: '2' },
+      'a,b,c',
+      'the amount of cards dealt out is greater than the deck',
+    ],
     [
       'a custom deck over the card limit',
       { numDecks: '2' },
