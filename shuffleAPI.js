@@ -35,19 +35,19 @@ exports.shuffle = function(req, res){
     var query = req.query;
     var params = validate(query, "");
     if(params.error){
-        res.json(401, {"error": params.error});
+        return res.status(401).json({"error": params.error});
     }
-    res.json(200, shuffleDeck(params));
+    res.status(200).json(shuffleDeck(params));
 }
 
 //post shuffle for custom deck if data found
 exports.customDeck = function(req, res){
     var query = req.query;
-    var params = validate(query, req.body.deck);
+    var params = validate(query, req.body?.deck);
     if(params.error){
-        res.json(401, {"error": params.error});
+        return res.status(401).json({"error": params.error});
     }	
-    res.json(200, shuffleDeck(params));
+    res.status(200).json(shuffleDeck(params));
 }
 
 //shuffles deck and builds json data to return

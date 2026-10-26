@@ -1,0 +1,17 @@
+{
+  "name": "cardshuffle",
+  "version": "1.0.0",
+  "description": "Simple REST API to get a deck of shuffled cards along with hands for players.",
+  "main": "app.js",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}

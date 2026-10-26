@@ -3,9 +3,8 @@ var api = require('./shuffleAPI');
 var app = express();
 
 //enable body parse
-app.configure(function(){
-	app.use(express.bodyParser());
-});
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 //routes
 app.get('/shuffle', api.shuffle);
