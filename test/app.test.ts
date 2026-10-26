@@ -133,6 +133,12 @@ describe('HTTP API', () => {
     assert.deepEqual(res.json(), { error: 'custom deck cannot have more than 10000 cards in total' });
   });
 
+  test('GET /health reports ok', async () => {
+    const res = await app.inject({ method: 'GET', url: '/health' });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json(), { status: 'ok' });
+  });
+
   test('unknown routes return 404', async () => {
     const res = await app.inject({ method: 'GET', url: '/nope' });
     assert.equal(res.statusCode, 404);
