@@ -15,7 +15,7 @@ export const shuffleRoutes: FastifyPluginCallback<ShuffleRoutesOptions> = (app, 
   const respond = (reply: FastifyReply, query: Query, deck: unknown) => {
     const result = parseParams(query, deck);
     if ('error' in result) {
-      return reply.code(401).send({ error: result.error });
+      return reply.code(400).send({ error: result.error });
     }
     return reply.code(200).send(shuffleRequest(result.params, pool, random));
   };

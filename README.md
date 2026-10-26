@@ -29,7 +29,7 @@ POST /customDeck :  pass in JSON data for a deck.
 
 the following options can be used in the GET query:
 <pre>
-numDecks: number of decks to shuffle together.
+numDecks: number of decks to shuffle together (1-100). A custom deck can hold at most 10000 cards across all decks.
 
 players*: amount of hands(players) to make from the deck.
 
