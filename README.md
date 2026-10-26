@@ -2,6 +2,24 @@
 
 Use cardshuffle.net to use the api.
 
+## Development
+
+Requires Node 26 (`nvm use` picks it up from `.nvmrc`).
+
+<pre>
+npm install
+npm run dev        # run from source with auto-reload
+npm run build      # compile to dist/
+npm start          # run the compiled server
+npm run lint
+npm run typecheck
+npm test
+</pre>
+
+The server listens on `PORT` (default 4000) and `IP` (default all interfaces).
+
+## API
+
 two url to use:
 </pre>
 GET /shuffle : for standard deck of  (format of value then suit. EX: 10H is 10 of hearts).
@@ -46,10 +64,10 @@ curl -X GET 'http://localhost:4000/shuffle?numDecks=2'
 curl -X GET 'http://localhost:4000/shuffle?players=4&handSize=5'
 {
   "hands": [
-    "QH,6D,5C,7C,8H,",
-    "10S,5H,6H,KS,3S,",
-    "10D,KC,8S,6S,AS,",
-    "3H,3D,9S,QD,AC,"
+    "QH,6D,5C,7C,8H",
+    "10S,5H,6H,KS,3S",
+    "10D,KC,8S,6S,AS",
+    "3H,3D,9S,QD,AC"
   ],
   "deck": "10H,QS,7S,4D,2D,9D,4S,4H,8D,2S,8C,7D,JS,6C,7H,AH,2C,9H,9C,QC,2H,4C,5D,KH,JD,10C,3C,5S,AD,JH,JC,KD"
 }
