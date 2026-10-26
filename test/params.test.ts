@@ -1,95 +1,75 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { parseParams } from '../src/params.ts';
+import { toShuffleParams } from '../src/params.ts';
 
 const repeatCards = (count: number) => Array.from({ length: count }, () => 'x');
 
-describe('parseParams', () => {
+describe('toShuffleParams', () => {
   test('accepts an empty query', () => {
-    assert.deepEqual(parseParams({}, undefined), { params: {} });
+    assert.deepEqual(toShuffleParams({}, undefined), { params: {} });
   });
 
-  test('parses numeric options', () => {
-    assert.deepEqual(parseParams({ numDecks: '2', players: '4', handSize: '5' }, undefined), {
+  test('passes numeric options through', () => {
+    assert.deepEqual(toShuffleParams({ numDecks: 2, players: 4, handSize: 5 }, undefined), {
       params: { numDecks: 2, deal: { players: 4, handSize: 5 } },
     });
   });
 
-  test('accepts the maximum number of decks and cards', () => {
-    assert.deepEqual(parseParams({ numDecks: '100' }, undefined), { params: { numDecks: 100 } });
-    assert.deepEqual(parseParams({ numDecks: '2' }, repeatCards(5000).join()), {
+  test('accepts the maximum number of custom cards', () => {
+    assert.deepEqual(toShuffleParams({ numDecks: 2 }, repeatCards(5000).join()), {
       params: { numDecks: 2, deck: repeatCards(5000) },
     });
   });
 
   test('allows dealing exactly the whole deck', () => {
-    assert.deepEqual(parseParams({ players: '4', handSize: '13' }, undefined), {
+    assert.deepEqual(toShuffleParams({ players: 4, handSize: 13 }, undefined), {
       params: { deal: { players: 4, handSize: 13 } },
     });
-    assert.deepEqual(parseParams({ numDecks: '2', players: '2', handSize: '3' }, 'a,b,c'), {
+    assert.deepEqual(toShuffleParams({ numDecks: 2, players: 2, handSize: 3 }, 'a,b,c'), {
       params: { numDecks: 2, deal: { players: 2, handSize: 3 }, deck: ['a', 'b', 'c'] },
     });
-    assert.ok('params' in parseParams({ numDecks: '2', players: '8', handSize: '13' }, undefined));
+    assert.ok('params' in toShuffleParams({ numDecks: 2, players: 8, handSize: 13 }, undefined));
   });
 
   test('keeps a custom deck and ignores an empty one', () => {
-    assert.deepEqual(parseParams({}, 'a,b'), { params: { deck: ['a', 'b'] } });
-    assert.deepEqual(parseParams({}, ''), { params: {} });
+    assert.deepEqual(toShuffleParams({}, 'a,b'), { params: { deck: ['a', 'b'] } });
+    assert.deepEqual(toShuffleParams({}, ''), { params: {} });
   });
 
   test('trims whitespace around custom cards', () => {
-    assert.deepEqual(parseParams({}, ' a , b\t,c '), { params: { deck: ['a', 'b', 'c'] } });
+    assert.deepEqual(toShuffleParams({}, ' a , b\t,c '), { params: { deck: ['a', 'b', 'c'] } });
   });
 
-  const errors: [string, Record<string, unknown>, unknown, string][] = [
-    ['non-numeric numDecks', { numDecks: 'abc' }, undefined, 'invalid format for number of decks'],
-    ['empty numDecks', { numDecks: '' }, undefined, 'invalid format for number of decks'],
-    ['zero numDecks', { numDecks: '0' }, undefined, 'invalid format for number of decks'],
-    ['fractional numDecks', { numDecks: '1.5' }, undefined, 'invalid format for number of decks'],
-    ['more than 100 decks', { numDecks: '101' }, undefined, 'number of decks cannot be more than 100'],
-    ['repeated numDecks', { numDecks: ['1', '2'] }, undefined, 'invalid format for number of decks'],
-    ['non-numeric players', { players: 'x', handSize: '5' }, undefined, 'invalid format for number of players'],
-    [
-      'players without handSize',
-      { players: '4' },
-      undefined,
-      'in order to use number of players, you need to pass the hand size also',
-    ],
-    ['negative handSize', { players: '4', handSize: '-1' }, undefined, 'invalid format for hand size'],
-    [
-      'handSize without players',
-      { handSize: '5' },
-      undefined,
-      'in order to use hand size, you need to pass amount of players also',
-    ],
-    ['non-string deck', {}, ['a', 'b'], 'invalid format for deck'],
-    ['an empty card in a custom deck', {}, 'a,,b', 'custom deck cannot contain empty cards'],
-    ['a trailing comma in a custom deck', {}, 'a,b,', 'custom deck cannot contain empty cards'],
-    ['a blank card in a custom deck', {}, 'a, ,b', 'custom deck cannot contain empty cards'],
-    ['a custom deck of only commas', {}, ',', 'custom deck cannot contain empty cards'],
+  const errors: [string, Parameters<typeof toShuffleParams>[0], string | undefined, string][] = [
+    ['players without handSize', { players: 4 }, undefined, 'players and handSize must be given together'],
+    ['handSize without players', { handSize: 5 }, undefined, 'players and handSize must be given together'],
+    ['an empty card in a custom deck', {}, 'a,,b', 'deck cannot contain empty cards'],
+    ['a trailing comma in a custom deck', {}, 'a,b,', 'deck cannot contain empty cards'],
+    ['a blank card in a custom deck', {}, 'a, ,b', 'deck cannot contain empty cards'],
+    ['a custom deck of only commas', {}, ',', 'deck cannot contain empty cards'],
     [
       'dealing more than a standard deck',
-      { players: '11', handSize: '5' },
+      { players: 11, handSize: 5 },
       undefined,
-      'the amount of cards dealt out is greater than the deck',
+      'cannot deal 55 cards (11 players × 5) from a deck of 52',
     ],
     [
       'dealing more than a custom deck',
-      { players: '2', handSize: '2' },
+      { players: 2, handSize: 2 },
       'a,b,c',
-      'the amount of cards dealt out is greater than the deck',
+      'cannot deal 4 cards (2 players × 2) from a deck of 3',
     ],
     [
       'a custom deck over the card limit',
-      { numDecks: '2' },
+      { numDecks: 2 },
       repeatCards(5001).join(),
-      'custom deck cannot have more than 10000 cards in total',
+      'deck cannot have more than 10000 cards in total, but 5001 cards × 2 decks is 10002',
     ],
   ];
 
   for (const [name, query, deck, error] of errors) {
     test(`rejects ${name}`, () => {
-      assert.deepEqual(parseParams(query, deck), { error });
+      assert.deepEqual(toShuffleParams(query, deck), { error });
     });
   }
 });

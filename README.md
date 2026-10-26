@@ -33,7 +33,20 @@ Both accept these query options:
 | `players`\* | Number of hands to deal from the deck.                                                        |
 | `handSize`\* | Number of cards in each hand.                                                                |
 
-\* `players` and `handSize` must be used together, and can't deal more cards than the deck holds. Invalid options return 400 with an `error` message.
+\* `players` and `handSize` must be used together, and can't deal more cards than the deck holds.
+
+Unknown query parameters and body fields are rejected.
+
+## Errors
+
+Every error response has a JSON body of the form `{"error": "<message>"}`:
+
+| Status | When                                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| 400    | Invalid or unknown query options or body fields, malformed JSON, or a deal larger than the deck.        |
+| 404    | Unknown route or method.                                                                                |
+| 415    | A `/customDeck` body that is neither JSON nor form data.                                               |
+| 500    | Unexpected server error (details are logged, not returned).                                            |
 
 ## Examples
 
@@ -62,7 +75,7 @@ $ curl 'http://localhost:4000/shuffle?players=4&handSize=5'
 
 ```console
 $ curl 'http://localhost:4000/shuffle?players=4'
-{"error":"in order to use number of players, you need to pass the hand size also"}
+{"error":"players and handSize must be given together"}
 ```
 
 ```console
@@ -77,5 +90,10 @@ $ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,two,three,fo
 
 ```console
 $ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,,two"}' 'http://localhost:4000/customDeck'
-{"error":"custom deck cannot contain empty cards"}
+{"error":"deck cannot contain empty cards"}
+```
+
+```console
+$ curl 'http://localhost:4000/shuffle?numDecks=101'
+{"error":"numDecks must be a whole number from 1 to 100"}
 ```
