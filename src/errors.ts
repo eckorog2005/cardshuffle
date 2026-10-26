@@ -1,11 +1,9 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
-const ACCEPTED_CONTENT_TYPES = 'application/json or application/x-www-form-urlencoded';
-
 function clientMessage(error: FastifyError, request: FastifyRequest): string {
   switch (error.code) {
     case 'FST_ERR_CTP_INVALID_MEDIA_TYPE':
-      return `unsupported content type "${request.headers['content-type'] ?? ''}", use ${ACCEPTED_CONTENT_TYPES}`;
+      return `unsupported content type "${request.headers['content-type'] ?? ''}", use application/json`;
     case 'FST_ERR_CTP_INVALID_JSON_BODY':
       return 'request body is not valid JSON';
     case 'FST_ERR_CTP_EMPTY_JSON_BODY':

@@ -16,7 +16,7 @@ export interface Query {
 }
 
 export interface Body {
-  deck?: string;
+  deck?: unknown;
 }
 
 export const MAX_DECKS = 100;
@@ -25,6 +25,9 @@ export const MAX_CUSTOM_CARDS = 10_000;
 type SchemaErrorDataVar = NonNullable<FastifyError['validationContext']>;
 
 const STANDARD_DECK_SIZE = standardDeck().length;
+
+const isCardList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
 
 const positiveInteger = { type: 'integer', minimum: 1 } as const;
 
@@ -41,8 +44,9 @@ export const querySchema = {
 export const bodySchema = {
   type: 'object',
   nullable: true,
+  // deck is checked in toShuffleParams: Ajv's type coercion would turn "a,b" into ["a,b"] and 5 into ["5"].
   properties: {
-    deck: { type: 'string' },
+    deck: {},
   },
   additionalProperties: false,
 } as const;
@@ -62,9 +66,6 @@ function describeSchemaError(error: FastifySchemaValidationError, dataVar: Schem
   if (field in integerRules) {
     return `${field} must be ${integerRules[field]}`;
   }
-  if (field === 'deck') {
-    return 'deck must be a string of comma-separated cards';
-  }
   if (field === '' && dataVar === 'body') {
     return 'request body must be an object';
   }
@@ -75,12 +76,15 @@ export function formatSchemaErrors(errors: FastifySchemaValidationError[], dataV
   return new Error(describeSchemaError(errors[0], dataVar));
 }
 
-export function toShuffleParams({ numDecks, players, handSize }: Query, deck: string | undefined): ParseResult {
+export function toShuffleParams({ numDecks, players, handSize }: Query, deck: unknown): ParseResult {
   if ((players === undefined) !== (handSize === undefined)) {
     return { error: 'players and handSize must be given together' };
   }
+  if (deck !== undefined && !isCardList(deck)) {
+    return { error: 'deck must be a non-empty array of strings' };
+  }
 
-  const customDeck = deck !== undefined && deck !== '' ? deck.split(',').map((card) => card.trim()) : undefined;
+  const customDeck = deck?.map((card) => card.trim());
   if (customDeck?.includes('')) {
     return { error: 'deck cannot contain empty cards' };
   }

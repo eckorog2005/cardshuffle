@@ -4,9 +4,8 @@ import type { FastifyInstance, InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.ts';
 
 interface DeckBody {
-  deck: string;
-  hands?: string[];
-  error?: string;
+  hands: string[][];
+  deck: string[];
 }
 
 describe('HTTP API', () => {
@@ -20,13 +19,21 @@ describe('HTTP API', () => {
     await app.close();
   });
 
-  const cardsOf = (body: string) => (JSON.parse(body) as DeckBody).deck.split(',');
+  const cardsOf = (body: string) => (JSON.parse(body) as DeckBody).deck;
 
   test('GET /shuffle returns a shuffled standard deck', async () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle' });
     assert.equal(res.statusCode, 200);
     assert.match(res.headers['content-type'] ?? '', /application\/json/);
     assert.equal(new Set(cardsOf(res.body)).size, 52);
+  });
+
+  test('GET /shuffle always returns the same shape, with no hands unless dealing', async () => {
+    const res = await app.inject({ method: 'GET', url: '/shuffle' });
+    const body = res.json<DeckBody>();
+    assert.deepEqual(Object.keys(body), ['hands', 'deck']);
+    assert.deepEqual(body.hands, []);
+    assert.ok(body.deck.every((card) => typeof card === 'string'));
   });
 
   test('GET /shuffle?numDecks=2 combines two decks', async () => {
@@ -39,17 +46,17 @@ describe('HTTP API', () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle?players=4&handSize=5' });
     assert.equal(res.statusCode, 200);
     const body = res.json<DeckBody>();
-    assert.ok(body.hands);
     assert.equal(body.hands.length, 4);
-    assert.ok(body.hands.every((hand) => hand.split(',').length === 5));
-    assert.equal(body.deck.split(',').length, 32);
+    assert.ok(body.hands.every((hand) => hand.length === 5));
+    assert.equal(body.deck.length, 32);
+    assert.equal(new Set([...body.hands.flat(), ...body.deck]).size, 52);
   });
 
   test('POST /customDeck shuffles a JSON deck', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/customDeck?numDecks=3',
-      payload: { deck: 'one,two,three,four' },
+      payload: { deck: ['one', 'two', 'three', 'four'] },
     });
     assert.equal(res.statusCode, 200);
     assert.deepEqual(cardsOf(res.body).sort(), [
@@ -58,15 +65,14 @@ describe('HTTP API', () => {
     ]);
   });
 
-  test('POST /customDeck accepts a form-encoded deck', async () => {
+  test('POST /customDeck keeps commas inside cards', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/customDeck',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      payload: 'deck=a,b,c',
+      url: '/customDeck?players=1&handSize=1',
+      payload: { deck: ['Ace, high'] },
     });
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(cardsOf(res.body).sort(), ['a', 'b', 'c']);
+    assert.deepEqual(res.json(), { hands: [['Ace, high']], deck: [] });
   });
 
   test('POST /customDeck without a body falls back to a standard deck', async () => {
@@ -76,19 +82,24 @@ describe('HTTP API', () => {
   });
 
   test('POST /customDeck trims whitespace around cards', async () => {
-    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ' a , b ' } });
+    const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: [' a ', ' b '] } });
     assert.equal(res.statusCode, 200);
     assert.deepEqual(cardsOf(res.body).sort(), ['a', 'b']);
   });
 
+  test('GET /health reports ok', async () => {
+    const res = await app.inject({ method: 'GET', url: '/health' });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json(), { status: 'ok' });
+  });
+
   test('POST /customDeck accepts the maximum numDecks with a small deck', async () => {
-    const res = await app.inject({ method: 'POST', url: '/customDeck?numDecks=100', payload: { deck: 'a,b' } });
+    const res = await app.inject({ method: 'POST', url: '/customDeck?numDecks=100', payload: { deck: ['a', 'b'] } });
     assert.equal(res.statusCode, 200);
     assert.equal(cardsOf(res.body).length, 200);
   });
 
   const json = { 'content-type': 'application/json' };
-  const form = { 'content-type': 'application/x-www-form-urlencoded' };
   const errorCases: [string, InjectOptions, number, string][] = [
     ['non-numeric numDecks', { url: '/shuffle?numDecks=abc' }, 400, 'numDecks must be a whole number from 1 to 100'],
     ['empty numDecks', { url: '/shuffle?numDecks=' }, 400, 'numDecks must be a whole number from 1 to 100'],
@@ -114,25 +125,19 @@ describe('HTTP API', () => {
     ],
     [
       'an invalid query on /customDeck',
-      { method: 'POST', url: '/customDeck?numDecks=0', payload: { deck: 'a' } },
+      { method: 'POST', url: '/customDeck?numDecks=0', payload: { deck: ['a'] } },
       400,
       'numDecks must be a whole number from 1 to 100',
     ],
-    [
-      'a non-string deck',
-      { method: 'POST', url: '/customDeck', payload: { deck: ['a', 'b'] } },
-      400,
-      'deck must be a string of comma-separated cards',
-    ],
-    [
-      'a repeated form deck',
-      { method: 'POST', url: '/customDeck', headers: form, payload: 'deck=a&deck=b' },
-      400,
-      'deck must be a string of comma-separated cards',
-    ],
+    ['a comma-separated string deck', { method: 'POST', url: '/customDeck', payload: { deck: 'a,b' } }, 400, 'deck must be a non-empty array of strings'],
+    ['a numeric deck', { method: 'POST', url: '/customDeck', payload: { deck: 5 } }, 400, 'deck must be a non-empty array of strings'],
+    ['a null deck', { method: 'POST', url: '/customDeck', payload: { deck: null } }, 400, 'deck must be a non-empty array of strings'],
+    ['an empty deck', { method: 'POST', url: '/customDeck', payload: { deck: [] } }, 400, 'deck must be a non-empty array of strings'],
+    ['non-string cards', { method: 'POST', url: '/customDeck', payload: { deck: ['a', 2] } }, 400, 'deck must be a non-empty array of strings'],
+    ['nested cards', { method: 'POST', url: '/customDeck', payload: { deck: [['a']] } }, 400, 'deck must be a non-empty array of strings'],
     [
       'an unknown body field',
-      { method: 'POST', url: '/customDeck', payload: { deck: 'a', cards: 'b' } },
+      { method: 'POST', url: '/customDeck', payload: { deck: ['a'], cards: 'b' } },
       400,
       'unknown field "cards" in request body',
     ],
@@ -144,7 +149,7 @@ describe('HTTP API', () => {
     ],
     [
       'empty cards',
-      { method: 'POST', url: '/customDeck', payload: { deck: 'a,,b' } },
+      { method: 'POST', url: '/customDeck', payload: { deck: ['a', ' ', 'b'] } },
       400,
       'deck cannot contain empty cards',
     ],
@@ -153,7 +158,7 @@ describe('HTTP API', () => {
       {
         method: 'POST',
         url: '/customDeck?numDecks=100',
-        payload: { deck: Array.from({ length: 101 }, (_, i) => String(i)).join() },
+        payload: { deck: Array.from({ length: 101 }, (_, i) => String(i)) },
       },
       400,
       'deck cannot have more than 10000 cards in total, but 101 cards × 100 decks is 10100',
@@ -174,7 +179,18 @@ describe('HTTP API', () => {
       'a plain-text body',
       { method: 'POST', url: '/customDeck', headers: { 'content-type': 'text/plain' }, payload: 'a,b' },
       415,
-      'unsupported content type "text/plain", use application/json or application/x-www-form-urlencoded',
+      'unsupported content type "text/plain", use application/json',
+    ],
+    [
+      'a form-encoded body',
+      {
+        method: 'POST',
+        url: '/customDeck',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        payload: 'deck=a',
+      },
+      415,
+      'unsupported content type "application/x-www-form-urlencoded", use application/json',
     ],
     ['an unknown route', { url: '/nope?numDecks=2' }, 404, 'route GET /nope not found'],
     ['an unsupported method', { method: 'DELETE', url: '/shuffle' }, 404, 'route DELETE /shuffle not found'],
@@ -200,5 +216,72 @@ describe('HTTP API internal errors', () => {
     await app.close();
     assert.equal(res.statusCode, 500);
     assert.deepEqual(res.json(), { error: 'internal server error' });
+  });
+});
+
+describe('rate limiting', () => {
+  test('returns 429 once the limit is exceeded', async () => {
+    const app = await buildApp({ rateLimit: { max: 2, timeWindow: '1 minute' } });
+    try {
+      for (let i = 0; i < 2; i++) {
+        const res = await app.inject({ method: 'GET', url: '/shuffle' });
+        assert.equal(res.statusCode, 200);
+      }
+      const res = await app.inject({ method: 'GET', url: '/shuffle' });
+      assert.equal(res.statusCode, 429);
+      assert.ok(res.headers['retry-after']);
+      assert.deepEqual(Object.keys(res.json<object>()), ['error']);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('does not limit /health', async () => {
+    const app = await buildApp({ rateLimit: { max: 1, timeWindow: '1 minute' } });
+    try {
+      for (let i = 0; i < 3; i++) {
+        const res = await app.inject({ method: 'GET', url: '/health' });
+        assert.equal(res.statusCode, 200);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('CORS', () => {
+  let app: FastifyInstance;
+
+  before(async () => {
+    app = await buildApp();
+  });
+
+  after(async () => {
+    await app.close();
+  });
+
+  test('allows any origin on simple requests', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/shuffle',
+      headers: { origin: 'https://example.com' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['access-control-allow-origin'], '*');
+  });
+
+  test('answers preflight requests with the allowed methods', async () => {
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/customDeck',
+      headers: {
+        origin: 'https://example.com',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type',
+      },
+    });
+    assert.equal(res.statusCode, 204);
+    assert.equal(res.headers['access-control-allow-origin'], '*');
+    assert.equal(res.headers['access-control-allow-methods'], 'GET, POST');
   });
 });

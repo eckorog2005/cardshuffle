@@ -8,7 +8,7 @@ export interface ShuffleRoutesOptions {
 }
 
 export const shuffleRoutes: FastifyPluginCallback<ShuffleRoutesOptions> = (app, { random }, done) => {
-  const respond = (reply: FastifyReply, query: Query, deck: string | undefined) => {
+  const respond = (reply: FastifyReply, query: Query, deck: unknown) => {
     const result = toShuffleParams(query, deck);
     if ('error' in result) {
       return reply.code(400).send({ error: result.error });

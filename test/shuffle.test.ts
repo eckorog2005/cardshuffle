@@ -7,11 +7,17 @@ describe('deal', () => {
   const cards = ['1', '2', '3', '4', '5', '6', '7'];
 
   test('deals round-robin and returns the rest as the deck', () => {
-    assert.deepEqual(deal(cards, 2, 3), { hands: ['1,3,5', '2,4,6'], deck: '7' });
+    assert.deepEqual(deal(cards, 2, 3), {
+      hands: [
+        ['1', '3', '5'],
+        ['2', '4', '6'],
+      ],
+      deck: ['7'],
+    });
   });
 
   test('can deal the whole deck', () => {
-    assert.deepEqual(deal(cards, 7, 1), { hands: ['1', '2', '3', '4', '5', '6', '7'], deck: '' });
+    assert.deepEqual(deal(cards, 7, 1), { hands: [['1'], ['2'], ['3'], ['4'], ['5'], ['6'], ['7']], deck: [] });
   });
 
   test('refuses to deal more cards than the deck holds', () => {
@@ -20,25 +26,28 @@ describe('deal', () => {
 });
 
 describe('shuffleRequest', () => {
-  test('returns a standard deck by default', () => {
+  test('returns a standard deck and no hands by default', () => {
     const result = shuffleRequest({}, randomInt);
-    assert.ok('deck' in result && !('hands' in result));
-    assert.equal(result.deck.split(',').length, 52);
+    assert.deepEqual(result.hands, []);
+    assert.equal(result.deck.length, 52);
   });
 
   test('repeats a custom deck numDecks times', () => {
     const result = shuffleRequest({ deck: ['a', 'b', 'c'], numDecks: 2 }, randomInt);
-    assert.ok('deck' in result);
-    assert.deepEqual(result.deck.split(',').sort(), ['a', 'a', 'b', 'b', 'c', 'c']);
+    assert.deepEqual(result.deck.sort(), ['a', 'a', 'b', 'b', 'c', 'c']);
+  });
+
+  test('keeps cards that contain commas intact', () => {
+    const result = shuffleRequest({ deck: ['a,b', 'c'] }, randomInt);
+    assert.deepEqual(result.deck.sort(), ['a,b', 'c']);
   });
 
   test('deals hands from the shuffled deck', () => {
     const result = shuffleRequest({ deal: { players: 4, handSize: 5 } }, randomInt);
-    assert.ok('hands' in result);
     assert.equal(result.hands.length, 4);
     for (const hand of result.hands) {
-      assert.equal(hand.split(',').length, 5);
+      assert.equal(hand.length, 5);
     }
-    assert.equal(result.deck.split(',').length, 32);
+    assert.equal(result.deck.length, 32);
   });
 });
