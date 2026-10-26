@@ -27,7 +27,7 @@ CORS is enabled for any origin, for `GET` and `POST`.
 There are two endpoints:
 
 - `GET /shuffle` returns a shuffled standard deck. Cards are written as value then suit, e.g. `10H` is the 10 of hearts.
-- `POST /customDeck` shuffles a deck you send as a JSON body: `{"deck":["one","two","three"]}`. Each card must be a string; whitespace around each card is trimmed, and empty cards are rejected. Cards may contain any other characters, commas included. Other content types return 415. With no body, or an empty `deck` array, it falls back to a standard deck.
+- `POST /customDeck` shuffles a deck you send as a JSON body: `{"deck":["one","two","three"]}`. Each card must be a string; whitespace around each card is trimmed, and empty cards are rejected. Cards may contain any other characters, commas included. Other content types return 415. With no body, or no `deck` field, it falls back to a standard deck; an empty `deck` array is rejected.
 
 `GET /health` returns `{"status":"ok"}` for liveness checks. It is not rate limited.
 
@@ -39,7 +39,21 @@ Both shuffle endpoints accept these query options:
 | `players`\*  | Number of hands to deal from the deck.                                                             |
 | `handSize`\* | Number of cards in each hand.                                                                      |
 
-\* `players` and `handSize` must be used together, and can't deal more cards than the deck holds. Invalid options return 400 with an `error` message.
+\* `players` and `handSize` must be used together, and can't deal more cards than the deck holds.
+
+Unknown query parameters and body fields are rejected.
+
+## Errors
+
+Every error response has a JSON body of the form `{"error": "<message>"}`:
+
+| Status | When                                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| 400    | Invalid or unknown query options or body fields, malformed JSON, or a deal larger than the deck.        |
+| 404    | Unknown route or method.                                                                                |
+| 415    | A `/customDeck` body that isn't JSON.                                                                   |
+| 429    | Rate limit exceeded; see the `Retry-After` header.                                                      |
+| 500    | Unexpected server error (details are logged, not returned).                                            |
 
 ### Response
 
@@ -77,7 +91,7 @@ $ curl 'http://localhost:4000/shuffle?players=4&handSize=5'
 
 ```console
 $ curl 'http://localhost:4000/shuffle?players=4'
-{"error":"in order to use number of players, you need to pass the hand size also"}
+{"error":"players and handSize must be given together"}
 ```
 
 ```console
@@ -92,10 +106,15 @@ $ curl -X POST -H 'Content-Type: application/json' -d '{"deck":["Ace, high","two
 
 ```console
 $ curl -X POST -H 'Content-Type: application/json' -d '{"deck":["one","","two"]}' 'http://localhost:4000/customDeck'
-{"error":"custom deck cannot contain empty cards"}
+{"error":"deck cannot contain empty cards"}
+```
+
+```console
+$ curl 'http://localhost:4000/shuffle?numDecks=101'
+{"error":"numDecks must be a whole number from 1 to 100"}
 ```
 
 ```console
 $ curl -X POST -H 'Content-Type: application/json' -d '{"deck":"one,two"}' 'http://localhost:4000/customDeck'
-{"error":"invalid format for deck"}
+{"error":"deck must be a non-empty array of strings"}
 ```

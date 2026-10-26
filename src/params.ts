@@ -1,3 +1,4 @@
+import type { FastifyError, FastifySchemaValidationError } from 'fastify';
 import { standardDeck } from './deck.ts';
 
 export interface ShuffleParams {
@@ -8,62 +9,104 @@ export interface ShuffleParams {
 
 export type ParseResult = { params: ShuffleParams } | { error: string };
 
-export type Query = Record<string, unknown>;
+export interface Query {
+  numDecks?: number;
+  players?: number;
+  handSize?: number;
+}
+
+export interface Body {
+  deck?: unknown;
+}
 
 export const MAX_DECKS = 100;
 export const MAX_CUSTOM_CARDS = 10_000;
 
+type SchemaErrorDataVar = NonNullable<FastifyError['validationContext']>;
+
 const STANDARD_DECK_SIZE = standardDeck().length;
 
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === 'string');
+const isCardList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
 
-const isPositiveInteger = (value: unknown): value is string =>
-  typeof value === 'string' && /^[1-9]\d*$/.test(value);
+const positiveInteger = { type: 'integer', minimum: 1 } as const;
 
-export function parseParams(query: Query, deck: unknown): ParseResult {
-  const { numDecks, players, handSize } = query;
+export const querySchema = {
+  type: 'object',
+  properties: {
+    numDecks: { ...positiveInteger, maximum: MAX_DECKS },
+    players: positiveInteger,
+    handSize: positiveInteger,
+  },
+  additionalProperties: false,
+} as const;
 
-  if (numDecks !== undefined && !isPositiveInteger(numDecks)) {
-    return { error: 'invalid format for number of decks' };
+export const bodySchema = {
+  type: 'object',
+  nullable: true,
+  // deck is checked in toShuffleParams: Ajv's type coercion would turn "a,b" into ["a,b"] and 5 into ["5"].
+  properties: {
+    deck: {},
+  },
+  additionalProperties: false,
+} as const;
+
+const integerRules: Record<string, string> = {
+  numDecks: `a whole number from 1 to ${String(MAX_DECKS)}`,
+  players: 'a positive whole number',
+  handSize: 'a positive whole number',
+};
+
+function describeSchemaError(error: FastifySchemaValidationError, dataVar: SchemaErrorDataVar): string {
+  const field = error.instancePath.slice(1);
+  if (error.keyword === 'additionalProperties') {
+    const name = String(error.params.additionalProperty);
+    return dataVar === 'querystring' ? `unknown query parameter "${name}"` : `unknown field "${name}" in request body`;
   }
-  if (numDecks !== undefined && Number(numDecks) > MAX_DECKS) {
-    return { error: `number of decks cannot be more than ${String(MAX_DECKS)}` };
+  if (field in integerRules) {
+    return `${field} must be ${integerRules[field]}`;
   }
-  if (players !== undefined && !isPositiveInteger(players)) {
-    return { error: 'invalid format for number of players' };
+  if (field === '' && dataVar === 'body') {
+    return 'request body must be an object';
   }
-  if (players !== undefined && handSize === undefined) {
-    return { error: 'in order to use number of players, you need to pass the hand size also' };
+  return `${field || dataVar} ${error.message ?? 'is invalid'}`;
+}
+
+export function formatSchemaErrors(errors: FastifySchemaValidationError[], dataVar: SchemaErrorDataVar): Error {
+  return new Error(describeSchemaError(errors[0], dataVar));
+}
+
+export function toShuffleParams({ numDecks, players, handSize }: Query, deck: unknown): ParseResult {
+  if ((players === undefined) !== (handSize === undefined)) {
+    return { error: 'players and handSize must be given together' };
   }
-  if (handSize !== undefined && !isPositiveInteger(handSize)) {
-    return { error: 'invalid format for hand size' };
-  }
-  if (handSize !== undefined && players === undefined) {
-    return { error: 'in order to use hand size, you need to pass amount of players also' };
-  }
-  if (deck !== undefined && !isStringArray(deck)) {
-    return { error: 'invalid format for deck' };
+  if (deck !== undefined && !isCardList(deck)) {
+    return { error: 'deck must be a non-empty array of strings' };
   }
 
-  const customDeck = deck !== undefined && deck.length > 0 ? deck.map((card) => card.trim()) : undefined;
+  const customDeck = deck?.map((card) => card.trim());
   if (customDeck?.includes('')) {
-    return { error: 'custom deck cannot contain empty cards' };
+    return { error: 'deck cannot contain empty cards' };
   }
-  const cardCount = (customDeck?.length ?? STANDARD_DECK_SIZE) * Number(numDecks ?? 1);
+  const cardCount = (customDeck?.length ?? STANDARD_DECK_SIZE) * (numDecks ?? 1);
   if (customDeck && cardCount > MAX_CUSTOM_CARDS) {
-    return { error: `custom deck cannot have more than ${String(MAX_CUSTOM_CARDS)} cards in total` };
-  }
-  if (players !== undefined && handSize !== undefined && Number(players) * Number(handSize) > cardCount) {
-    return { error: 'the amount of cards dealt out is greater than the deck' };
+    return {
+      error: `deck cannot have more than ${String(MAX_CUSTOM_CARDS)} cards in total, but ${String(customDeck.length)} cards × ${String(numDecks ?? 1)} decks is ${String(cardCount)}`,
+    };
   }
 
   const params: ShuffleParams = {};
   if (numDecks !== undefined) {
-    params.numDecks = Number(numDecks);
+    params.numDecks = numDecks;
   }
   if (players !== undefined && handSize !== undefined) {
-    params.deal = { players: Number(players), handSize: Number(handSize) };
+    const dealt = players * handSize;
+    if (dealt > cardCount) {
+      return {
+        error: `cannot deal ${String(dealt)} cards (${String(players)} players × ${String(handSize)}) from a deck of ${String(cardCount)}`,
+      };
+    }
+    params.deal = { players, handSize };
   }
   if (customDeck) {
     params.deck = customDeck;
