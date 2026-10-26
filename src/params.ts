@@ -1,3 +1,5 @@
+import { standardDeck } from './deck.ts';
+
 export interface ShuffleParams {
   numDecks?: number;
   deal?: { players: number; handSize: number };
@@ -10,6 +12,8 @@ export type Query = Record<string, unknown>;
 
 export const MAX_DECKS = 100;
 export const MAX_CUSTOM_CARDS = 10_000;
+
+const STANDARD_DECK_SIZE = standardDeck().length;
 
 const isPositiveInteger = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value);
@@ -38,8 +42,14 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
   if (deck !== undefined && typeof deck !== 'string') {
     return { error: 'invalid format for deck' };
   }
-  if (deck !== undefined && deck !== '' && deck.split(',').length * Number(numDecks ?? 1) > MAX_CUSTOM_CARDS) {
+
+  const customDeck = deck !== undefined && deck !== '';
+  const cardCount = (customDeck ? deck.split(',').length : STANDARD_DECK_SIZE) * Number(numDecks ?? 1);
+  if (customDeck && cardCount > MAX_CUSTOM_CARDS) {
     return { error: `custom deck cannot have more than ${String(MAX_CUSTOM_CARDS)} cards in total` };
+  }
+  if (players !== undefined && handSize !== undefined && Number(players) * Number(handSize) > cardCount) {
+    return { error: 'the amount of cards dealt out is greater than the deck' };
   }
 
   const params: ShuffleParams = {};
@@ -49,7 +59,7 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
   if (players !== undefined && handSize !== undefined) {
     params.deal = { players: Number(players), handSize: Number(handSize) };
   }
-  if (deck !== undefined && deck !== '') {
+  if (customDeck) {
     params.deck = deck;
   }
   return { params };

@@ -15,7 +15,7 @@ describe('deal', () => {
   });
 
   test('refuses to deal more cards than the deck holds', () => {
-    assert.deepEqual(deal(cards, 4, 2), { error: 'the amount of cards dealt out is greater than the deck' });
+    assert.throws(() => deal(cards, 4, 2), RangeError);
   });
 });
 

@@ -53,9 +53,9 @@ describe('HTTP API', () => {
     });
   });
 
-  test('GET /shuffle reports when hands need more cards than the deck', async () => {
+  test('GET /shuffle rejects hands that need more cards than the deck', async () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle?players=20&handSize=5' });
-    assert.equal(res.statusCode, 200);
+    assert.equal(res.statusCode, 400);
     assert.deepEqual(res.json(), { error: 'the amount of cards dealt out is greater than the deck' });
   });
 
