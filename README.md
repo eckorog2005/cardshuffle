@@ -16,7 +16,7 @@ npm run typecheck
 npm test
 ```
 
-The server listens on `PORT` (default 4000) and `IP` (default all interfaces).
+The server listens on `PORT` (default 4000) and `IP` (default all interfaces). It logs JSON lines (Fastify's pino logger) to stdout, and shuts down gracefully on `SIGTERM`/`SIGINT`.
 
 ## API
 
@@ -25,7 +25,9 @@ There are two endpoints:
 - `GET /shuffle` returns a shuffled standard deck. Cards are written as value then suit, e.g. `10H` is the 10 of hearts.
 - `POST /customDeck` shuffles a deck you send in the body as JSON (`{"deck":"one,two,three"}`) or form data (`deck=one,two,three`). Cards are comma-separated, whitespace around each card is trimmed, and empty cards are rejected. Other content types return 415. With no body it falls back to a standard deck.
 
-Both accept these query options:
+`GET /health` returns `{"status":"ok"}` for liveness checks.
+
+Both shuffle endpoints accept these query options:
 
 | Option      | Meaning                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------- |
