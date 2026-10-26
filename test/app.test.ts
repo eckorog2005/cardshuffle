@@ -144,3 +144,69 @@ describe('HTTP API', () => {
     assert.equal(res.statusCode, 404);
   });
 });
+
+describe('rate limiting', () => {
+  test('returns 429 once the limit is exceeded', async () => {
+    const app = await buildApp({ rateLimit: { max: 2, timeWindow: '1 minute' } });
+    try {
+      for (let i = 0; i < 2; i++) {
+        const res = await app.inject({ method: 'GET', url: '/shuffle' });
+        assert.equal(res.statusCode, 200);
+      }
+      const res = await app.inject({ method: 'GET', url: '/shuffle' });
+      assert.equal(res.statusCode, 429);
+      assert.ok(res.headers['retry-after']);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('does not limit /health', async () => {
+    const app = await buildApp({ rateLimit: { max: 1, timeWindow: '1 minute' } });
+    try {
+      for (let i = 0; i < 3; i++) {
+        const res = await app.inject({ method: 'GET', url: '/health' });
+        assert.equal(res.statusCode, 200);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('CORS', () => {
+  let app: FastifyInstance;
+
+  before(async () => {
+    app = await buildApp();
+  });
+
+  after(async () => {
+    await app.close();
+  });
+
+  test('allows any origin on simple requests', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/shuffle',
+      headers: { origin: 'https://example.com' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['access-control-allow-origin'], '*');
+  });
+
+  test('answers preflight requests with the allowed methods', async () => {
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/customDeck',
+      headers: {
+        origin: 'https://example.com',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type',
+      },
+    });
+    assert.equal(res.statusCode, 204);
+    assert.equal(res.headers['access-control-allow-origin'], '*');
+    assert.equal(res.headers['access-control-allow-methods'], 'GET, POST');
+  });
+});
