@@ -133,6 +133,12 @@ describe('HTTP API', () => {
     assert.deepEqual(res.json(), { error: 'custom deck cannot have more than 10000 cards in total' });
   });
 
+  test('GET /health reports ok', async () => {
+    const res = await app.inject({ method: 'GET', url: '/health' });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json(), { status: 'ok' });
+  });
+
   test('unknown routes return 404', async () => {
     const res = await app.inject({ method: 'GET', url: '/nope' });
     assert.equal(res.statusCode, 404);
@@ -150,6 +156,18 @@ describe('rate limiting', () => {
       const res = await app.inject({ method: 'GET', url: '/shuffle' });
       assert.equal(res.statusCode, 429);
       assert.ok(res.headers['retry-after']);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('does not limit /health', async () => {
+    const app = await buildApp({ rateLimit: { max: 1, timeWindow: '1 minute' } });
+    try {
+      for (let i = 0; i < 3; i++) {
+        const res = await app.inject({ method: 'GET', url: '/health' });
+        assert.equal(res.statusCode, 200);
+      }
     } finally {
       await app.close();
     }

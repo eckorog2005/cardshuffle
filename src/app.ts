@@ -8,11 +8,16 @@ import { shuffleRoutes } from './routes.ts';
 
 export interface AppOptions {
   random?: Random;
+  logger?: boolean;
   rateLimit?: { max?: number; timeWindow?: number | string };
 }
 
-export async function buildApp({ random = randomInt, rateLimit: limits = {} }: AppOptions = {}): Promise<FastifyInstance> {
-  const app = Fastify();
+export async function buildApp({
+  random = randomInt,
+  logger = false,
+  rateLimit: limits = {},
+}: AppOptions = {}): Promise<FastifyInstance> {
+  const app = Fastify({ logger });
   // Without this, a text/plain deck is parsed but ignored and the caller silently gets a standard deck.
   app.removeContentTypeParser('text/plain');
   await app.register(cors, { origin: '*', methods: ['GET', 'POST'] });
@@ -21,6 +26,7 @@ export async function buildApp({ random = randomInt, rateLimit: limits = {} }: A
     timeWindow: limits.timeWindow ?? '1 minute',
   });
   await app.register(formbody);
+  app.get('/health', { config: { rateLimit: false } }, () => ({ status: 'ok' }));
   await app.register(shuffleRoutes, { random });
   return app;
 }
