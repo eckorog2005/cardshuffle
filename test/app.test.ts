@@ -45,9 +45,9 @@ describe('HTTP API', () => {
     assert.equal(body.deck.split(',').length, 32);
   });
 
-  test('GET /shuffle rejects invalid options with 401', async () => {
+  test('GET /shuffle rejects invalid options with 400', async () => {
     const res = await app.inject({ method: 'GET', url: '/shuffle?players=4' });
-    assert.equal(res.statusCode, 401);
+    assert.equal(res.statusCode, 400);
     assert.deepEqual(res.json(), {
       error: 'in order to use number of players, you need to pass the hand size also',
     });
@@ -91,8 +91,24 @@ describe('HTTP API', () => {
 
   test('POST /customDeck rejects a non-string deck', async () => {
     const res = await app.inject({ method: 'POST', url: '/customDeck', payload: { deck: ['a', 'b'] } });
-    assert.equal(res.statusCode, 401);
+    assert.equal(res.statusCode, 400);
     assert.deepEqual(res.json(), { error: 'invalid format for deck' });
+  });
+
+  test('GET /shuffle rejects more than 100 decks', async () => {
+    const res = await app.inject({ method: 'GET', url: '/shuffle?numDecks=101' });
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.json(), { error: 'number of decks cannot be more than 100' });
+  });
+
+  test('POST /customDeck rejects decks over the card limit', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/customDeck?numDecks=100',
+      payload: { deck: Array.from({ length: 101 }, (_, i) => String(i)).join() },
+    });
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.json(), { error: 'custom deck cannot have more than 10000 cards in total' });
   });
 
   test('unknown routes return 404', async () => {

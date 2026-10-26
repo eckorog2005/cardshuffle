@@ -8,6 +8,9 @@ export type ParseResult = { params: ShuffleParams } | { error: string };
 
 export type Query = Record<string, unknown>;
 
+export const MAX_DECKS = 100;
+export const MAX_CUSTOM_CARDS = 10_000;
+
 const isPositiveInteger = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value);
 
@@ -16,6 +19,9 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
 
   if (numDecks !== undefined && !isPositiveInteger(numDecks)) {
     return { error: 'invalid format for number of decks' };
+  }
+  if (numDecks !== undefined && Number(numDecks) > MAX_DECKS) {
+    return { error: `number of decks cannot be more than ${String(MAX_DECKS)}` };
   }
   if (players !== undefined && !isPositiveInteger(players)) {
     return { error: 'invalid format for number of players' };
@@ -31,6 +37,9 @@ export function parseParams(query: Query, deck: unknown): ParseResult {
   }
   if (deck !== undefined && typeof deck !== 'string') {
     return { error: 'invalid format for deck' };
+  }
+  if (deck !== undefined && deck !== '' && deck.split(',').length * Number(numDecks ?? 1) > MAX_CUSTOM_CARDS) {
+    return { error: `custom deck cannot have more than ${String(MAX_CUSTOM_CARDS)} cards in total` };
   }
 
   const params: ShuffleParams = {};
