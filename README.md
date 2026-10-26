@@ -18,6 +18,10 @@ npm test
 
 The server listens on `PORT` (default 4000) and `IP` (default all interfaces).
 
+Requests are rate limited per client IP to `RATE_LIMIT_MAX` requests (default 100) per `RATE_LIMIT_WINDOW` (default `1 minute`; milliseconds or a string like `30 seconds`). Over the limit the API returns 429 with a `Retry-After` header.
+
+CORS is enabled for any origin, for `GET` and `POST`.
+
 ## API
 
 There are two endpoints:
