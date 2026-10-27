@@ -29,14 +29,20 @@ const STANDARD_DECK_SIZE = standardDeck().length;
 const isCardList = (value: unknown): value is string[] =>
   Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
 
-const positiveInteger = { type: 'integer', minimum: 1 } as const;
+// Ajv's coercion accepts anything Number() parses ("1e1", "0x10", " 5"), so require plain digits before coercing.
+const positiveInteger = (maximum?: number) => ({
+  allOf: [
+    { type: 'string', pattern: '^[1-9][0-9]*$' },
+    { type: 'integer', minimum: 1, ...(maximum === undefined ? {} : { maximum }) },
+  ],
+});
 
 export const querySchema = {
   type: 'object',
   properties: {
-    numDecks: { ...positiveInteger, maximum: MAX_DECKS },
-    players: positiveInteger,
-    handSize: positiveInteger,
+    numDecks: positiveInteger(MAX_DECKS),
+    players: positiveInteger(),
+    handSize: positiveInteger(),
   },
   additionalProperties: false,
 } as const;

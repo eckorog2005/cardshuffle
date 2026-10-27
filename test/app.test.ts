@@ -105,6 +105,10 @@ describe('HTTP API', () => {
     ['empty numDecks', { url: '/shuffle?numDecks=' }, 400, 'numDecks must be a whole number from 1 to 100'],
     ['zero numDecks', { url: '/shuffle?numDecks=0' }, 400, 'numDecks must be a whole number from 1 to 100'],
     ['fractional numDecks', { url: '/shuffle?numDecks=1.5' }, 400, 'numDecks must be a whole number from 1 to 100'],
+    ['exponent numDecks', { url: '/shuffle?numDecks=1e1' }, 400, 'numDecks must be a whole number from 1 to 100'],
+    ['hex numDecks', { url: '/shuffle?numDecks=0x10' }, 400, 'numDecks must be a whole number from 1 to 100'],
+    ['space-padded numDecks', { url: '/shuffle?numDecks=%205' }, 400, 'numDecks must be a whole number from 1 to 100'],
+    ['zero-padded numDecks', { url: '/shuffle?numDecks=007' }, 400, 'numDecks must be a whole number from 1 to 100'],
     ['more than 100 decks', { url: '/shuffle?numDecks=101' }, 400, 'numDecks must be a whole number from 1 to 100'],
     [
       'repeated numDecks',
@@ -114,6 +118,7 @@ describe('HTTP API', () => {
     ],
     ['non-numeric players', { url: '/shuffle?players=x&handSize=5' }, 400, 'players must be a positive whole number'],
     ['negative handSize', { url: '/shuffle?players=4&handSize=-1' }, 400, 'handSize must be a positive whole number'],
+    ['decimal-point players', { url: '/shuffle?players=2.0&handSize=3' }, 400, 'players must be a positive whole number'],
     ['an unknown query parameter', { url: '/shuffle?decks=2' }, 400, 'unknown query parameter "decks"'],
     ['players without handSize', { url: '/shuffle?players=4' }, 400, 'players and handSize must be given together'],
     ['handSize without players', { url: '/shuffle?handSize=5' }, 400, 'players and handSize must be given together'],
