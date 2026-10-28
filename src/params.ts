@@ -36,7 +36,8 @@ const isCardList = (value: unknown): value is string[] =>
   Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
 
 // Ajv's coercion accepts anything Number() parses ("1e1", "0x10", " 5"), so require plain digits before coercing.
-const positiveInteger = (maximum?: number) => ({
+const positiveInteger = (description: string, maximum?: number) => ({
+  description,
   allOf: [
     { type: 'string', pattern: '^[1-9][0-9]*$' },
     { type: 'integer', minimum: 1, ...(maximum === undefined ? {} : { maximum }) },
@@ -46,12 +47,22 @@ const positiveInteger = (maximum?: number) => ({
 export const querySchema = {
   type: 'object',
   properties: {
-    numDecks: positiveInteger(MAX_DECKS),
-    players: positiveInteger(),
-    handSize: positiveInteger(),
-    seed: { type: 'string', minLength: 1, maxLength: MAX_SEED_LENGTH },
-    jokers: positiveInteger(MAX_JOKERS),
-    exclude: { type: 'string', minLength: 1, maxLength: 512 },
+    numDecks: positiveInteger('Number of decks to shuffle together.', MAX_DECKS),
+    players: positiveInteger('Number of hands to deal. Requires handSize.'),
+    handSize: positiveInteger('Number of cards in each hand. Requires players.'),
+    seed: {
+      type: 'string',
+      minLength: 1,
+      maxLength: MAX_SEED_LENGTH,
+      description: 'Makes the shuffle reproducible: the same seed and options always give the same result.',
+    },
+    jokers: positiveInteger('Jokers (JK) to add to each standard deck.', MAX_JOKERS),
+    exclude: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+      description: 'Comma-separated standard cards to remove from each deck, e.g. 2H,2S,2C,2D.',
+    },
   },
   additionalProperties: false,
 } as const;
@@ -61,10 +72,12 @@ export const bodySchema = {
   nullable: true,
   // deck is checked in toShuffleParams: Ajv's type coercion would turn "a,b" into ["a,b"] and 5 into ["5"].
   properties: {
-    deck: {},
+    deck: { description: 'Cards to shuffle, e.g. ["one","two","three"]. Commas inside cards are kept.' },
   },
   additionalProperties: false,
 } as const;
+
+export const deckDocsSchema = { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } } as const;
 
 const fieldRules: Record<string, string> = {
   numDecks: `a whole number from 1 to ${String(MAX_DECKS)}`,
