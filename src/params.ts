@@ -1,5 +1,5 @@
 import type { FastifyError, FastifySchemaValidationError } from 'fastify';
-import { standardDeck } from './deck.ts';
+import { JOKER, standardDeck } from './deck.ts';
 
 export interface ShuffleParams {
   numDecks?: number;
@@ -14,6 +14,8 @@ export interface Query {
   players?: number;
   handSize?: number;
   seed?: string;
+  jokers?: number;
+  exclude?: string;
 }
 
 export interface Body {
@@ -23,10 +25,12 @@ export interface Body {
 export const MAX_DECKS = 100;
 export const MAX_CUSTOM_CARDS = 10_000;
 export const MAX_SEED_LENGTH = 128;
+export const MAX_JOKERS = 2;
 
 type SchemaErrorDataVar = NonNullable<FastifyError['validationContext']>;
 
 const STANDARD_DECK_SIZE = standardDeck().length;
+const STANDARD_CARDS = new Set(standardDeck());
 
 const isCardList = (value: unknown): value is string[] =>
   Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
@@ -46,6 +50,8 @@ export const querySchema = {
     players: positiveInteger(),
     handSize: positiveInteger(),
     seed: { type: 'string', minLength: 1, maxLength: MAX_SEED_LENGTH },
+    jokers: positiveInteger(MAX_JOKERS),
+    exclude: { type: 'string', minLength: 1, maxLength: 512 },
   },
   additionalProperties: false,
 } as const;
@@ -65,6 +71,8 @@ const fieldRules: Record<string, string> = {
   players: 'a positive whole number',
   handSize: 'a positive whole number',
   seed: `a string of 1 to ${String(MAX_SEED_LENGTH)} characters`,
+  jokers: `a whole number from 1 to ${String(MAX_JOKERS)}`,
+  exclude: 'a comma-separated list of cards, such as 2H,2S',
 };
 
 function describeSchemaError(error: FastifySchemaValidationError, dataVar: SchemaErrorDataVar): string {
@@ -86,19 +94,47 @@ export function formatSchemaErrors(errors: FastifySchemaValidationError[], dataV
   return new Error(describeSchemaError(errors[0], dataVar));
 }
 
-export function toShuffleParams({ numDecks, players, handSize }: Query, deck: unknown): ParseResult {
+function standardVariant(jokers = 0, exclude?: string): { cards: string[] } | { error: string } {
+  const removed = exclude?.split(',').map((card) => card.trim().toUpperCase()) ?? [];
+  const unknown = removed.find((card) => !STANDARD_CARDS.has(card));
+  if (unknown !== undefined) {
+    return { error: `exclude contains "${unknown}", which is not a standard card` };
+  }
+  const cards = [...standardDeck().filter((card) => !removed.includes(card)), ...Array<string>(jokers).fill(JOKER)];
+  if (cards.length === 0) {
+    return { error: 'exclude cannot remove every card' };
+  }
+  return { cards };
+}
+
+export function toShuffleParams(
+  { numDecks, players, handSize, jokers, exclude }: Query,
+  deck: unknown,
+): ParseResult {
   if ((players === undefined) !== (handSize === undefined)) {
     return { error: 'players and handSize must be given together' };
   }
   if (deck !== undefined && !isCardList(deck)) {
     return { error: 'deck must be a non-empty array of strings' };
   }
+  const variant = jokers !== undefined || exclude !== undefined;
+  if (variant && deck !== undefined) {
+    return { error: 'jokers and exclude only apply to the standard deck' };
+  }
 
   const customDeck = deck?.map((card) => card.trim());
   if (customDeck?.includes('')) {
     return { error: 'deck cannot contain empty cards' };
   }
-  const cardCount = (customDeck?.length ?? STANDARD_DECK_SIZE) * (numDecks ?? 1);
+  let standard: string[] | undefined;
+  if (variant) {
+    const result = standardVariant(jokers, exclude);
+    if ('error' in result) {
+      return result;
+    }
+    standard = result.cards;
+  }
+  const cardCount = ((customDeck ?? standard)?.length ?? STANDARD_DECK_SIZE) * (numDecks ?? 1);
   if (customDeck && cardCount > MAX_CUSTOM_CARDS) {
     return {
       error: `deck cannot have more than ${String(MAX_CUSTOM_CARDS)} cards in total, but ${String(customDeck.length)} cards × ${String(numDecks ?? 1)} decks is ${String(cardCount)}`,
@@ -118,8 +154,9 @@ export function toShuffleParams({ numDecks, players, handSize }: Query, deck: un
     }
     params.deal = { players, handSize };
   }
-  if (customDeck) {
-    params.deck = customDeck;
+  const cards = customDeck ?? standard;
+  if (cards) {
+    params.deck = cards;
   }
   return { params };
 }

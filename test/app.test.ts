@@ -109,6 +109,23 @@ describe('HTTP API', () => {
     assert.deepEqual(first.json(), second.json());
   });
 
+  test('GET /shuffle adds jokers to every deck', async () => {
+    const res = await app.inject({ url: '/shuffle?jokers=2&numDecks=2' });
+    assert.equal(res.statusCode, 200);
+    const cards = cardsOf(res.body);
+    assert.equal(cards.length, 108);
+    assert.equal(cards.filter((card) => card === 'JK').length, 4);
+  });
+
+  test('GET /shuffle removes excluded cards', async () => {
+    const res = await app.inject({ url: '/shuffle?exclude=2H,2S,2C,2D&players=4&handSize=12' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json<DeckBody>();
+    const cards = [...body.hands.flat(), ...body.deck];
+    assert.equal(cards.length, 48);
+    assert.ok(!cards.some((card) => card.startsWith('2')));
+  });
+
   test('GET /health reports ok', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     assert.equal(res.statusCode, 200);
@@ -148,6 +165,20 @@ describe('HTTP API', () => {
       'seed must be a string of 1 to 128 characters',
     ],
     ['a repeated seed', { url: '/shuffle?seed=a&seed=b' }, 400, 'seed must be a string of 1 to 128 characters'],
+    ['too many jokers', { url: '/shuffle?jokers=3' }, 400, 'jokers must be a whole number from 1 to 2'],
+    ['an empty exclude', { url: '/shuffle?exclude=' }, 400, 'exclude must be a comma-separated list of cards, such as 2H,2S'],
+    [
+      'an unknown excluded card',
+      { url: '/shuffle?exclude=1H' },
+      400,
+      'exclude contains "1H", which is not a standard card',
+    ],
+    [
+      'jokers with a custom deck',
+      { method: 'POST', url: '/customDeck?jokers=1', payload: { deck: ['a'] } },
+      400,
+      'jokers and exclude only apply to the standard deck',
+    ],
     ['decimal-point players', { url: '/shuffle?players=2.0&handSize=3' }, 400, 'players must be a positive whole number'],
     ['an unknown query parameter', { url: '/shuffle?decks=2' }, 400, 'unknown query parameter "decks"'],
     ['players without handSize', { url: '/shuffle?players=4' }, 400, 'players and handSize must be given together'],
