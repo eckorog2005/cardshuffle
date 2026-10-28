@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { randomInt } from 'node:crypto';
 import type { Random } from './deck.ts';
+import { registerDocs } from './docs.ts';
 import { errorHandler, notFoundHandler } from './errors.ts';
 import { shuffleRoutes } from './routes.ts';
 
@@ -28,7 +29,18 @@ export async function buildApp({
     max: limits.max ?? 100,
     timeWindow: limits.timeWindow ?? '1 minute',
   });
-  app.get('/health', { config: { rateLimit: false } }, () => ({ status: 'ok' }));
+  await registerDocs(app);
+  app.get(
+    '/health',
+    {
+      config: { rateLimit: false },
+      schema: {
+        summary: 'Liveness check',
+        response: { 200: { type: 'object', properties: { status: { type: 'string', const: 'ok' } } } },
+      },
+    },
+    () => ({ status: 'ok' }),
+  );
   await app.register(shuffleRoutes, { random });
   return app;
 }

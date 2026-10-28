@@ -31,6 +31,8 @@ There are two endpoints:
 
 `GET /health` returns `{"status":"ok"}` for liveness checks. It is not rate limited.
 
+Interactive API docs are served at `/docs`, and the OpenAPI 3 spec, generated from the route schemas, at `/docs/json`.
+
 Both shuffle endpoints accept these query options:
 
 | Option       | Meaning                                                                                            |
