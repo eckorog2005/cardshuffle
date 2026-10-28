@@ -87,6 +87,28 @@ describe('HTTP API', () => {
     assert.deepEqual(cardsOf(res.body).sort(), ['a', 'b']);
   });
 
+  test('GET /shuffle with a seed is reproducible', async () => {
+    const url = '/shuffle?seed=table-7&players=3&handSize=4';
+    const first = await app.inject({ url });
+    const second = await app.inject({ url });
+    assert.equal(first.statusCode, 200);
+    assert.deepEqual(first.json(), second.json());
+  });
+
+  test('GET /shuffle gives different results for different seeds', async () => {
+    const a = await app.inject({ url: '/shuffle?seed=a' });
+    const b = await app.inject({ url: '/shuffle?seed=b' });
+    assert.notDeepEqual(cardsOf(a.body), cardsOf(b.body));
+  });
+
+  test('POST /customDeck with a seed is reproducible', async () => {
+    const request = { method: 'POST', url: '/customDeck?seed=42', payload: { deck: ['a', 'b', 'c', 'd', 'e'] } } as const;
+    const first = await app.inject(request);
+    const second = await app.inject(request);
+    assert.equal(first.statusCode, 200);
+    assert.deepEqual(first.json(), second.json());
+  });
+
   test('GET /health reports ok', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     assert.equal(res.statusCode, 200);
@@ -118,6 +140,14 @@ describe('HTTP API', () => {
     ],
     ['non-numeric players', { url: '/shuffle?players=x&handSize=5' }, 400, 'players must be a positive whole number'],
     ['negative handSize', { url: '/shuffle?players=4&handSize=-1' }, 400, 'handSize must be a positive whole number'],
+    ['an empty seed', { url: '/shuffle?seed=' }, 400, 'seed must be a string of 1 to 128 characters'],
+    [
+      'a seed over 128 characters',
+      { url: `/shuffle?seed=${'x'.repeat(129)}` },
+      400,
+      'seed must be a string of 1 to 128 characters',
+    ],
+    ['a repeated seed', { url: '/shuffle?seed=a&seed=b' }, 400, 'seed must be a string of 1 to 128 characters'],
     ['decimal-point players', { url: '/shuffle?players=2.0&handSize=3' }, 400, 'players must be a positive whole number'],
     ['an unknown query parameter', { url: '/shuffle?decks=2' }, 400, 'unknown query parameter "decks"'],
     ['players without handSize', { url: '/shuffle?players=4' }, 400, 'players and handSize must be given together'],
