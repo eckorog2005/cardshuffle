@@ -13,6 +13,7 @@ export interface Query {
   numDecks?: number;
   players?: number;
   handSize?: number;
+  seed?: string;
 }
 
 export interface Body {
@@ -21,6 +22,7 @@ export interface Body {
 
 export const MAX_DECKS = 100;
 export const MAX_CUSTOM_CARDS = 10_000;
+export const MAX_SEED_LENGTH = 128;
 
 type SchemaErrorDataVar = NonNullable<FastifyError['validationContext']>;
 
@@ -43,6 +45,7 @@ export const querySchema = {
     numDecks: positiveInteger(MAX_DECKS),
     players: positiveInteger(),
     handSize: positiveInteger(),
+    seed: { type: 'string', minLength: 1, maxLength: MAX_SEED_LENGTH },
   },
   additionalProperties: false,
 } as const;
@@ -57,10 +60,11 @@ export const bodySchema = {
   additionalProperties: false,
 } as const;
 
-const integerRules: Record<string, string> = {
+const fieldRules: Record<string, string> = {
   numDecks: `a whole number from 1 to ${String(MAX_DECKS)}`,
   players: 'a positive whole number',
   handSize: 'a positive whole number',
+  seed: `a string of 1 to ${String(MAX_SEED_LENGTH)} characters`,
 };
 
 function describeSchemaError(error: FastifySchemaValidationError, dataVar: SchemaErrorDataVar): string {
@@ -69,8 +73,8 @@ function describeSchemaError(error: FastifySchemaValidationError, dataVar: Schem
     const name = String(error.params.additionalProperty);
     return dataVar === 'querystring' ? `unknown query parameter "${name}"` : `unknown field "${name}" in request body`;
   }
-  if (field in integerRules) {
-    return `${field} must be ${integerRules[field]}`;
+  if (field in fieldRules) {
+    return `${field} must be ${fieldRules[field]}`;
   }
   if (field === '' && dataVar === 'body') {
     return 'request body must be an object';

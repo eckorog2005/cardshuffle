@@ -38,8 +38,11 @@ Both shuffle endpoints accept these query options:
 | `numDecks`   | Number of decks to shuffle together (1-100). A custom deck can hold at most 10000 cards in total.  |
 | `players`\*  | Number of hands to deal from the deck.                                                             |
 | `handSize`\* | Number of cards in each hand.                                                                      |
+| `seed`       | Any string of 1-128 characters. The same seed and options always give the same shuffle and deal.   |
 
 \* `players` and `handSize` must be used together, and can't deal more cards than the deck holds.
+
+Without a `seed`, every request is shuffled with a cryptographically secure random source. A seed makes the result predictable to anyone who knows it, so use one for replays and tests, not where players must not be able to work out the deck.
 
 Unknown query parameters and body fields are rejected.
 
@@ -87,6 +90,11 @@ $ curl 'http://localhost:4000/shuffle?players=4&handSize=5'
   ],
   "deck": ["KH", "KS", "JC", "7C", "3H", "3C", "5S", "7D", "2H", "9H", "2C", "10C", "7S", "8S", "6C", "10S", "8D", "7H", "2D", "AC", "QS", "JD", "6S", "3D", "KD", "QD", "9S", "QH", "6D", "5H", "9C", "10H"]
 }
+```
+
+```console
+$ curl 'http://localhost:4000/shuffle?seed=demo&players=2&handSize=3'
+{"hands":[["2C","JH","KC"],["9C","QH","6H"]],"deck":["4C","8H","10H","4D","8S","6C","6S","7S","3S","5H","4H","10C","7H","KS","AS","7D","10S","KH","3D","AD","10D","QD","9S","8D","QC","5S","6D","JD","8C","5D","2D","9H","4S","2H","KD","AC","9D","JS","AH","5C","3H","7C","3C","QS","JC","2S"]}
 ```
 
 ```console
