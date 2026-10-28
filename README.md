@@ -39,8 +39,12 @@ Both shuffle endpoints accept these query options:
 | `players`\*  | Number of hands to deal from the deck.                                                             |
 | `handSize`\* | Number of cards in each hand.                                                                      |
 | `seed`       | Any string of 1-128 characters. The same seed and options always give the same shuffle and deal.   |
+| `jokers`     | Add 1 or 2 jokers (`JK`) to each standard deck.                                                    |
+| `exclude`    | Comma-separated standard cards to remove from each deck, e.g. `2H,2S,2C,2D`. Case-insensitive.     |
 
 \* `players` and `handSize` must be used together, and can't deal more cards than the deck holds.
+
+`jokers` and `exclude` only work with the standard deck, not with a custom `deck`.
 
 Without a `seed`, every request is shuffled with a cryptographically secure random source. A seed makes the result predictable to anyone who knows it, so use one for replays and tests, not where players must not be able to work out the deck.
 
@@ -95,6 +99,11 @@ $ curl 'http://localhost:4000/shuffle?players=4&handSize=5'
 ```console
 $ curl 'http://localhost:4000/shuffle?seed=demo&players=2&handSize=3'
 {"hands":[["2C","JH","KC"],["9C","QH","6H"]],"deck":["4C","8H","10H","4D","8S","6C","6S","7S","3S","5H","4H","10C","7H","KS","AS","7D","10S","KH","3D","AD","10D","QD","9S","8D","QC","5S","6D","JD","8C","5D","2D","9H","4S","2H","KD","AC","9D","JS","AH","5C","3H","7C","3C","QS","JC","2S"]}
+```
+
+```console
+$ curl 'http://localhost:4000/shuffle?seed=demo&jokers=2&exclude=2H,2S,2C,2D&players=2&handSize=3'
+{"hands":[["8D","9C","3S"],["JS","10D","3C"]],"deck":["AH","6H","JH","5S","5C","JK","7C","QC","3D","4H","9H","10C","10S","JK","8S","6D","KH","7H","5H","7D","5D","4D","8C","KS","9D","6C","JC","7S","9S","AD","QH","3H","4S","AC","8H","KC","JD","4C","KD","6S","AS","QD","QS","10H"]}
 ```
 
 ```console

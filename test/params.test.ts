@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { standardDeck } from '../src/deck.ts';
 import { toShuffleParams } from '../src/params.ts';
 
 const repeatCards = (count: number) => Array.from({ length: count }, () => 'x');
@@ -43,6 +44,29 @@ describe('toShuffleParams', () => {
     assert.deepEqual(toShuffleParams({}, [' a ', ' b\t', 'c ']), { params: { deck: ['a', 'b', 'c'] } });
   });
 
+  test('adds jokers to the standard deck', () => {
+    const result = toShuffleParams({ jokers: 2 }, undefined);
+    assert.ok('params' in result);
+    const deck = result.params.deck ?? [];
+    assert.equal(deck.length, 54);
+    assert.deepEqual(deck.slice(-2), ['JK', 'JK']);
+  });
+
+  test('removes excluded cards, ignoring case and spaces', () => {
+    const result = toShuffleParams({ exclude: '2H, 2s,2C,2D' }, undefined);
+    assert.ok('params' in result);
+    const deck = result.params.deck ?? [];
+    assert.equal(deck.length, 48);
+    assert.ok(!deck.some((card) => card.startsWith('2')));
+  });
+
+  test('counts jokers and exclusions when checking the deal size', () => {
+    assert.ok('params' in toShuffleParams({ jokers: 2, players: 6, handSize: 9 }, undefined));
+    assert.deepEqual(toShuffleParams({ exclude: 'AH', players: 4, handSize: 13 }, undefined), {
+      error: 'cannot deal 52 cards (4 players × 13) from a deck of 51',
+    });
+  });
+
   const deckFormat = 'deck must be a non-empty array of strings';
   const errors: [string, Parameters<typeof toShuffleParams>[0], unknown, string][] = [
     ['players without handSize', { players: 4 }, undefined, 'players and handSize must be given together'],
@@ -54,6 +78,17 @@ describe('toShuffleParams', () => {
     ['a deck with a non-string card', {}, ['a', 1], deckFormat],
     ['a deck with a nested array', {}, ['a', ['b']], deckFormat],
     ['a deck with a null card', {}, ['a', null], deckFormat],
+    ['jokers with a custom deck', { jokers: 1 }, ['a'], 'jokers and exclude only apply to the standard deck'],
+    ['exclude with a custom deck', { exclude: 'AH' }, ['a'], 'jokers and exclude only apply to the standard deck'],
+    ['an unknown excluded card', { exclude: 'AH,ZZ' }, undefined, 'exclude contains "ZZ", which is not a standard card'],
+    ['excluding a joker', { jokers: 1, exclude: 'JK' }, undefined, 'exclude contains "JK", which is not a standard card'],
+    ['an empty excluded card', { exclude: 'AH,,KS' }, undefined, 'exclude contains "", which is not a standard card'],
+    [
+      'excluding every card',
+      { exclude: standardDeck().join() },
+      undefined,
+      'exclude cannot remove every card',
+    ],
     ['an empty card in a custom deck', {}, ['a', '', 'b'], 'deck cannot contain empty cards'],
     ['a blank card in a custom deck', {}, ['a', ' \t', 'b'], 'deck cannot contain empty cards'],
     [
