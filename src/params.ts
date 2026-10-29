@@ -109,6 +109,9 @@ export function formatSchemaErrors(errors: FastifySchemaValidationError[], dataV
 
 function standardVariant(jokers = 0, exclude?: string): { cards: string[] } | { error: string } {
   const removed = exclude?.split(',').map((card) => card.trim().toUpperCase()) ?? [];
+  if (removed.includes('')) {
+    return { error: 'exclude cannot contain empty cards' };
+  }
   const unknown = removed.find((card) => !STANDARD_CARDS.has(card));
   if (unknown !== undefined) {
     return { error: `exclude contains "${unknown}", which is not a standard card` };
