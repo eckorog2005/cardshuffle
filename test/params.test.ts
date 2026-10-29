@@ -82,7 +82,8 @@ describe('toShuffleParams', () => {
     ['exclude with a custom deck', { exclude: 'AH' }, ['a'], 'jokers and exclude only apply to the standard deck'],
     ['an unknown excluded card', { exclude: 'AH,ZZ' }, undefined, 'exclude contains "ZZ", which is not a standard card'],
     ['excluding a joker', { jokers: 1, exclude: 'JK' }, undefined, 'exclude contains "JK", which is not a standard card'],
-    ['an empty excluded card', { exclude: 'AH,,KS' }, undefined, 'exclude contains "", which is not a standard card'],
+    ['an empty excluded card', { exclude: 'AH,,KS' }, undefined, 'exclude cannot contain empty cards'],
+    ['a trailing comma in exclude', { exclude: 'AH,' }, undefined, 'exclude cannot contain empty cards'],
     [
       'excluding every card',
       { exclude: standardDeck().join() },

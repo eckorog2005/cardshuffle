@@ -1,8 +1,5 @@
 import { buildApp } from './app.ts';
 
-const port = Number(process.env.PORT ?? 4000);
-const host = process.env.IP ?? '::';
-
 const envInteger = (name: string): number | undefined => {
   const value = process.env[name];
   if (value === undefined || value === '') {
@@ -13,6 +10,12 @@ const envInteger = (name: string): number | undefined => {
   }
   return Number(value);
 };
+
+const port = envInteger('PORT') ?? 4000;
+if (port > 65535) {
+  throw new Error('PORT must be at most 65535');
+}
+const host = process.env.IP ?? '::';
 
 const windowEnv = process.env.RATE_LIMIT_WINDOW || undefined;
 const app = await buildApp({
